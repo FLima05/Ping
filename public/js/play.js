@@ -7,16 +7,61 @@ const elEntrar = document.getElementById('entrar');
 const elAviso = document.getElementById('aviso');
 const elAlternativas = document.getElementById('alternativas');
 const elPontos = document.getElementById('pontos');
+const elConexao = document.getElementById('conexao');
 
-const ws = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host);
-ws.addEventListener('message', (evento) => desenhar(JSON.parse(evento.data)));
+// id fixo do aparelho, e o que devolve os pontos se a conexao cair
+let id = sessionStorage.getItem('quiz_id');
+if (!id) {
+  id = crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random();
+  sessionStorage.setItem('quiz_id', id);
+}
 
-elEntrar.addEventListener('click', () => {
-  const nome = elNome.value.trim();
-  if (!nome) return;
-  ws.send(JSON.stringify({ tipo: 'entrar_jogador', nome: nome }));
+let nome = sessionStorage.getItem('quiz_nome') || '';
+let ws = null;
+
+if (nome) {
   elEntrada.hidden = true;
   elJogo.hidden = false;
+}
+
+function entrar() {
+  if (ws && ws.readyState === WebSocket.OPEN && nome) {
+    ws.send(JSON.stringify({ tipo: 'entrar_jogador', id: id, nome: nome }));
+  }
+}
+
+function conectar() {
+  ws = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host);
+  ws.addEventListener('open', () => {
+    elConexao.textContent = '';
+    entrar();
+  });
+  ws.addEventListener('message', (evento) => desenhar(JSON.parse(evento.data)));
+  ws.addEventListener('close', () => {
+    elConexao.textContent = 'reconectando';
+    setTimeout(conectar, 2000);
+  });
+}
+
+conectar();
+
+setInterval(() => {
+  if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ tipo: 'ping' }));
+}, 25000);
+
+// celular volta do bloqueio com a conexao morta, reconecta na hora
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden && ws && ws.readyState === WebSocket.CLOSED) conectar();
+});
+
+elEntrar.addEventListener('click', () => {
+  const digitado = elNome.value.trim();
+  if (!digitado) return;
+  nome = digitado;
+  sessionStorage.setItem('quiz_nome', nome);
+  elEntrada.hidden = true;
+  elJogo.hidden = false;
+  entrar();
 });
 
 function desenhar(e) {
@@ -31,7 +76,9 @@ function desenhar(e) {
       const botao = document.createElement('button');
       botao.className = 'resposta';
       botao.textContent = letras[i] + '. ' + texto;
-      botao.addEventListener('click', () => ws.send(JSON.stringify({ tipo: 'responder', indice: i })));
+      botao.addEventListener('click', () => {
+        if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ tipo: 'responder', indice: i }));
+      });
       elAlternativas.appendChild(botao);
     });
   } else if (e.estado === 'pergunta') {

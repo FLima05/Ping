@@ -1,0 +1,164 @@
+:root {
+  --fundo: #151a1f;
+  --superficie: #1f262d;
+  --borda: #3c4753;
+  --texto: #f2eee6;
+  --apagado: #aab3bc;
+  --acento: #c9522a;
+  --certo: #2c6b45;
+  --errado: #98301f;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  border-radius: 0;
+}
+
+[hidden] {
+  display: none !important;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  background-color: var(--fundo);
+  color: var(--texto);
+  font-family: Helvetica, Arial, sans-serif;
+  display: flex;
+  flex-direction: column;
+  /* dvh acompanha a barra do navegador do celular, vh nao */
+  min-height: 100dvh;
+  padding: 14px;
+  padding-bottom: calc(14px + env(safe-area-inset-bottom));
+  padding-left: calc(14px + env(safe-area-inset-left));
+  padding-right: calc(14px + env(safe-area-inset-right));
+  overscroll-behavior: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+#entrada {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 14px;
+}
+
+#entrada h1 {
+  font-size: 30px;
+}
+
+#nome {
+  width: 100%;
+  /* abaixo de 16px o iOS da zoom sozinho ao focar */
+  font-size: 20px;
+  padding: 16px;
+  background-color: var(--superficie);
+  color: var(--texto);
+  border: 3px solid var(--borda);
+  font-family: inherit;
+}
+
+.botao {
+  width: 100%;
+  min-height: 64px;
+  font-size: 22px;
+  font-weight: bold;
+  background-color: var(--acento);
+  color: var(--texto);
+  border: 0;
+  font-family: inherit;
+  touch-action: manipulation;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+#jogo {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+#aviso {
+  font-size: 26px;
+  font-weight: bold;
+  padding: 10px 0;
+}
+
+#aviso.certo {
+  background-color: var(--certo);
+  padding: 16px;
+}
+
+#aviso.errado {
+  background-color: var(--errado);
+  padding: 16px;
+}
+
+.botoes {
+  flex: 1;
+  display: grid;
+  /* divide a altura livre entre as alternativas, sem rolagem */
+  grid-auto-rows: 1fr;
+  gap: 10px;
+}
+
+.resposta {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-height: 72px;
+  font-size: 22px;
+  line-height: 1.2;
+  text-align: left;
+  padding: 14px;
+  background-color: var(--superficie);
+  color: var(--texto);
+  border: 3px solid var(--borda);
+  font-family: inherit;
+  touch-action: manipulation;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+#pontos {
+  font-size: 18px;
+  color: var(--apagado);
+}
+
+#conexao {
+  font-size: 16px;
+  color: var(--acento);
+}
+
+/* celular baixinho */
+@media (max-height: 640px) {
+  #aviso {
+    font-size: 22px;
+  }
+  .resposta {
+    font-size: 19px;
+    min-height: 60px;
+  }
+}
+
+/* deitado */
+@media (orientation: landscape) and (max-height: 480px) {
+  .botoes {
+    grid-template-columns: 1fr 1fr;
+  }
+  #aviso {
+    font-size: 20px;
+    padding: 4px 0;
+  }
+  #pontos {
+    display: none;
+  }
+}

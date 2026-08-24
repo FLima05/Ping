@@ -5,18 +5,24 @@ const express = require('express');
 const { WebSocketServer } = require('ws');
 
 const PORTA = process.env.PORT || 3000;
+const CHAVE = process.env.CHAVE_HOST || '';
 const perguntas = JSON.parse(fs.readFileSync(path.join(__dirname, 'questions.json'), 'utf8'));
 
 const app = express();
 app.use(express.static(path.join(__dirname, 'public')));
-app.get('/host', (req, res) => res.sendFile(path.join(__dirname, 'public', 'host.html')));
+
+app.get('/host', (req, res) => {
+  if (CHAVE && req.query.chave !== CHAVE) return res.status(403).send('chave do host invalida');
+  res.sendFile(path.join(__dirname, 'public', 'host.html'));
+});
+
 app.get('/play', (req, res) => res.sendFile(path.join(__dirname, 'public', 'play.html')));
 
 const servidor = http.createServer(app);
 const wss = new WebSocketServer({ server: servidor });
 
 const hosts = new Set();
-const jogadores = new Map(); // ws -> { nome, pontos, escolha, ganhou, entrouEm }
+const jogadores = new Map(); // id do jogador -> { id, nome, pontos, escolha, ganhou, entrouEm, ws }
 
 const jogo = {
   estado: 'aguardando', // aguardando | pergunta | resultado | fim
@@ -28,9 +34,13 @@ function perguntaAtual() {
   return perguntas[jogo.indice] || null;
 }
 
-// quem entrou com a pergunta ja aberta nao conta pra fechar a rodada
+function online(j) {
+  return j.ws && j.ws.readyState === j.ws.OPEN;
+}
+
+// so conta quem esta conectado agora e ja estava dentro quando a pergunta abriu
 function elegiveis() {
-  return [...jogadores.values()].filter((j) => j.entrouEm < jogo.abertaEm);
+  return [...jogadores.values()].filter((j) => online(j) && j.entrouEm < jogo.abertaEm);
 }
 
 // metade do ponto vem por acertar, a outra metade cai conforme o tempo gasto
@@ -48,7 +58,9 @@ function placar() {
 function estadoHost() {
   const p = perguntaAtual();
   const naRodada =
-    jogo.estado === 'pergunta' || jogo.estado === 'resultado' ? elegiveis() : [...jogadores.values()];
+    jogo.estado === 'pergunta' || jogo.estado === 'resultado'
+      ? elegiveis()
+      : [...jogadores.values()].filter(online);
   return {
     estado: jogo.estado,
     numero: jogo.indice + 1,
@@ -56,7 +68,6 @@ function estadoHost() {
     enunciado: p ? p.enunciado : '',
     alternativas: p ? p.alternativas : [],
     correta: jogo.estado === 'resultado' && p ? p.correta : null,
-    tempo: p ? p.tempo : 0,
     respondidas: naRodada.filter((j) => j.escolha !== null).length,
     conectados: naRodada.length,
     placar: placar()
@@ -77,13 +88,15 @@ function estadoJogador(j) {
 }
 
 function enviar(ws, dados) {
-  if (ws.readyState === ws.OPEN) ws.send(JSON.stringify(dados));
+  if (ws && ws.readyState === ws.OPEN) ws.send(JSON.stringify(dados));
 }
 
 function transmitir() {
   const paraHost = estadoHost();
   hosts.forEach((ws) => enviar(ws, paraHost));
-  jogadores.forEach((j, ws) => enviar(ws, estadoJogador(j)));
+  jogadores.forEach((j) => {
+    if (online(j)) enviar(j.ws, estadoJogador(j));
+  });
 }
 
 function abrirPergunta() {
@@ -107,6 +120,15 @@ function fecharPergunta() {
   transmitir();
 }
 
+function fecharSeTodosResponderam() {
+  const dentro = elegiveis();
+  if (jogo.estado === 'pergunta' && dentro.length > 0 && dentro.every((j) => j.escolha !== null)) {
+    fecharPergunta();
+  } else {
+    transmitir();
+  }
+}
+
 wss.on('connection', (ws) => {
   ws.on('message', (bruto) => {
     let msg;
@@ -116,21 +138,33 @@ wss.on('connection', (ws) => {
       return;
     }
 
+    if (msg.tipo === 'ping') return; // so serve pra segurar a conexao e o servico acordado
+
     if (msg.tipo === 'entrar_host') {
+      if (CHAVE && msg.chave !== CHAVE) return;
       hosts.add(ws);
       enviar(ws, estadoHost());
       return;
     }
 
     if (msg.tipo === 'entrar_jogador') {
+      const id = String(msg.id || '').slice(0, 40);
+      if (!id) return;
       const nome = String(msg.nome || '').trim().slice(0, 20) || 'sem nome';
-      jogadores.set(ws, { nome, pontos: 0, escolha: null, ganhou: 0, entrouEm: Date.now() });
+      const antigo = jogadores.get(id);
+      if (antigo) {
+        antigo.ws = ws; // voltou depois de cair, mantem pontos e resposta da rodada
+        antigo.nome = nome;
+      } else {
+        jogadores.set(id, { id, nome, pontos: 0, escolha: null, ganhou: 0, entrouEm: Date.now(), ws });
+      }
+      ws.idJogador = id;
       transmitir();
       return;
     }
 
     if (msg.tipo === 'responder') {
-      const j = jogadores.get(ws);
+      const j = jogadores.get(ws.idJogador);
       const p = perguntaAtual();
       if (!j || !p || jogo.estado !== 'pergunta' || j.escolha !== null || j.entrouEm > jogo.abertaEm) return;
       const i = Number(msg.indice);
@@ -140,13 +174,12 @@ wss.on('connection', (ws) => {
         j.ganhou = pontuar(p, Date.now() - jogo.abertaEm);
         j.pontos += j.ganhou;
       }
-      const todosResponderam = elegiveis().every((x) => x.escolha !== null);
-      if (todosResponderam) fecharPergunta();
-      else transmitir();
+      fecharSeTodosResponderam();
       return;
     }
 
-    if (msg.tipo === 'proxima' && hosts.has(ws)) {
+    if (msg.tipo === 'proxima') {
+      if (!hosts.has(ws)) return;
       if (jogo.estado === 'pergunta') fecharPergunta();
       else if (jogo.estado !== 'fim') abrirPergunta();
     }
@@ -154,16 +187,19 @@ wss.on('connection', (ws) => {
 
   ws.on('close', () => {
     hosts.delete(ws);
-    if (!jogadores.delete(ws)) return;
-    // quem saiu pode ter sido o unico que faltava responder
-    const restantes = elegiveis();
-    if (jogo.estado === 'pergunta' && restantes.length > 0 && restantes.every((x) => x.escolha !== null)) {
-      fecharPergunta();
-    } else {
-      transmitir();
-    }
+    const j = jogadores.get(ws.idJogador);
+    if (!j) return;
+    if (j.ws === ws) j.ws = null; // guarda os pontos ate ele voltar
+    fecharSeTodosResponderam();
   });
 });
+
+// proxy corta conexao parada, entao manda quadro de ping de tempos em tempos
+setInterval(() => {
+  wss.clients.forEach((ws) => {
+    if (ws.readyState === ws.OPEN) ws.ping();
+  });
+}, 30000);
 
 servidor.listen(PORTA, () => {
   console.log('host:   http://localhost:' + PORTA + '/host');

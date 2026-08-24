@@ -7,7 +7,7 @@ const rotulos = {
 };
 
 const elNumero = document.getElementById('numero');
-const elTempo = document.getElementById('tempo');
+const elConexao = document.getElementById('conexao');
 const elEnunciado = document.getElementById('enunciado');
 const elAlternativas = document.getElementById('alternativas');
 const elSecaoPlacar = document.getElementById('secao-placar');
@@ -15,13 +15,34 @@ const elPlacar = document.getElementById('placar');
 const elContador = document.getElementById('contador');
 const elAvancar = document.getElementById('avancar');
 
-const ws = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host);
-ws.addEventListener('open', () => ws.send(JSON.stringify({ tipo: 'entrar_host' })));
-ws.addEventListener('message', (evento) => desenhar(JSON.parse(evento.data)));
-elAvancar.addEventListener('click', () => ws.send(JSON.stringify({ tipo: 'proxima' })));
+const chave = new URLSearchParams(location.search).get('chave') || '';
+let ws = null;
+
+function conectar() {
+  ws = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host);
+  ws.addEventListener('open', () => {
+    elConexao.textContent = '';
+    ws.send(JSON.stringify({ tipo: 'entrar_host', chave: chave }));
+  });
+  ws.addEventListener('message', (evento) => desenhar(JSON.parse(evento.data)));
+  ws.addEventListener('close', () => {
+    elConexao.textContent = 'reconectando';
+    setTimeout(conectar, 2000);
+  });
+}
+
+conectar();
+
+// segura a conexao e evita o servico dormir por falta de trafego
+setInterval(() => {
+  if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ tipo: 'ping' }));
+}, 25000);
+
+elAvancar.addEventListener('click', () => {
+  if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ tipo: 'proxima' }));
+});
 
 function desenhar(e) {
-  elTempo.textContent = '';
   if (e.estado === 'pergunta') elNumero.textContent = 'Pergunta ' + e.numero + ' de ' + e.total;
   else if (e.estado === 'resultado') elNumero.textContent = 'Resultado ' + e.numero + ' de ' + e.total;
   else if (e.estado === 'fim') elNumero.textContent = 'Fim da partida';

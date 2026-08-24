@@ -2,14 +2,23 @@
 <html lang="pt-br">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#151a1f" />
     <title>Quiz ao vivo</title>
-    <link rel="stylesheet" href="/css/style.css" />
+    <link rel="stylesheet" href="/css/play.css" />
   </head>
-  <body class="jogador">
+  <body>
     <section id="entrada">
       <h1>Seu nome</h1>
-      <input id="nome" maxlength="20" autocomplete="off" />
+      <input
+        id="nome"
+        maxlength="20"
+        autocomplete="off"
+        autocorrect="off"
+        autocapitalize="words"
+        spellcheck="false"
+        enterkeyhint="go"
+      />
       <button id="entrar" class="botao">Entrar</button>
     </section>
 
@@ -17,6 +26,7 @@
       <p id="aviso">Aguarde o início</p>
       <div id="alternativas" class="botoes"></div>
       <p id="pontos"></p>
+      <p id="conexao"></p>
     </section>
 
     <script src="/js/play.js"></script>
