@@ -9,7 +9,17 @@ const CHAVE = process.env.CHAVE_HOST || '';
 const perguntas = JSON.parse(fs.readFileSync(path.join(__dirname, 'questions.json'), 'utf8'));
 
 const app = express();
-app.use(express.static(path.join(__dirname, 'public')));
+
+// sem no-cache o celular fica com a tela da versao anterior depois do deploy
+app.use(
+  express.static(path.join(__dirname, 'public'), {
+    etag: true,
+    maxAge: 0,
+    setHeaders: (res) => res.setHeader('Cache-Control', 'no-cache')
+  })
+);
+
+app.get('/', (req, res) => res.redirect('/play'));
 
 app.get('/host', (req, res) => {
   if (CHAVE && req.query.chave !== CHAVE) return res.status(403).send('chave do host invalida');
@@ -120,6 +130,20 @@ function fecharPergunta() {
   transmitir();
 }
 
+// volta pro comeco sem reiniciar o servico
+function reiniciar() {
+  jogo.estado = 'aguardando';
+  jogo.indice = -1;
+  jogo.abertaEm = 0;
+  jogadores.forEach((j) => {
+    j.pontos = 0;
+    j.escolha = null;
+    j.ganhou = 0;
+    j.entrouEm = Date.now();
+  });
+  transmitir();
+}
+
 function fecharSeTodosResponderam() {
   const dentro = elegiveis();
   if (jogo.estado === 'pergunta' && dentro.length > 0 && dentro.every((j) => j.escolha !== null)) {
@@ -138,7 +162,7 @@ wss.on('connection', (ws) => {
       return;
     }
 
-    if (msg.tipo === 'ping') return; // so serve pra segurar a conexao e o servico acordado
+    if (msg.tipo === 'ping') return; // so segura a conexao e o servico acordado
 
     if (msg.tipo === 'entrar_host') {
       if (CHAVE && msg.chave !== CHAVE) return;
@@ -180,8 +204,9 @@ wss.on('connection', (ws) => {
 
     if (msg.tipo === 'proxima') {
       if (!hosts.has(ws)) return;
-      if (jogo.estado === 'pergunta') fecharPergunta();
-      else if (jogo.estado !== 'fim') abrirPergunta();
+      if (jogo.estado === 'fim') reiniciar();
+      else if (jogo.estado === 'pergunta') fecharPergunta();
+      else abrirPergunta();
     }
   });
 

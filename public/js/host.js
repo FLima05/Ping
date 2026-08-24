@@ -3,7 +3,7 @@ const rotulos = {
   aguardando: 'Iniciar',
   pergunta: 'Encerrar pergunta',
   resultado: 'Próxima pergunta',
-  fim: 'Fim'
+  fim: 'Recomeçar'
 };
 
 const elNumero = document.getElementById('numero');
@@ -75,5 +75,5 @@ function desenhar(e) {
 
   elContador.textContent = e.respondidas + ' de ' + e.conectados + ' responderam';
   elAvancar.textContent = rotulos[e.estado];
-  elAvancar.disabled = e.estado === 'fim';
+  elAvancar.disabled = false;
 }

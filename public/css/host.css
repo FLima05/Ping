@@ -115,11 +115,6 @@ body {
   cursor: pointer;
 }
 
-.botao:disabled {
-  background-color: var(--superficie);
-  color: var(--apagado);
-}
-
 /* projetor de sala pequena, 1024x768 */
 @media (max-width: 1100px) {
   #enunciado {

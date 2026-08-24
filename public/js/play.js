@@ -10,13 +10,13 @@ const elPontos = document.getElementById('pontos');
 const elConexao = document.getElementById('conexao');
 
 // id fixo do aparelho, e o que devolve os pontos se a conexao cair
-let id = sessionStorage.getItem('quiz_id');
+let id = sessionStorage.getItem('ping_id');
 if (!id) {
   id = crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random();
-  sessionStorage.setItem('quiz_id', id);
+  sessionStorage.setItem('ping_id', id);
 }
 
-let nome = sessionStorage.getItem('quiz_nome') || '';
+let nome = sessionStorage.getItem('ping_nome') || '';
 let ws = null;
 
 if (nome) {
@@ -58,7 +58,7 @@ elEntrar.addEventListener('click', () => {
   const digitado = elNome.value.trim();
   if (!digitado) return;
   nome = digitado;
-  sessionStorage.setItem('quiz_nome', nome);
+  sessionStorage.setItem('ping_nome', nome);
   elEntrada.hidden = true;
   elJogo.hidden = false;
   entrar();
