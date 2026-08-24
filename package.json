@@ -1,6 +1,6 @@
 {
   "name": "ping",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "private": true,
   "main": "server.js",
   "engines": {
@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "express": "^4.19.2",
+    "qrcode": "^1.5.4",
     "ws": "^8.18.0"
   }
 }

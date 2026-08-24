@@ -2,13 +2,29 @@ const fs = require('fs');
 const http = require('http');
 const path = require('path');
 const express = require('express');
+const QRCode = require('qrcode');
 const { WebSocketServer } = require('ws');
 
 const PORTA = process.env.PORT || 3000;
 const CHAVE = process.env.CHAVE_HOST || '';
-const perguntas = JSON.parse(fs.readFileSync(path.join(__dirname, 'questions.json'), 'utf8'));
+const PASTA_QUIZZES = path.join(__dirname, 'quizzes');
+
+// le a pasta uma vez no boot; so arquivo que esta nesse mapa pode ser escolhido depois
+function carregarBancos() {
+  const mapa = new Map();
+  for (const arquivo of fs.readdirSync(PASTA_QUIZZES)) {
+    if (!arquivo.endsWith('.json')) continue;
+    const dados = JSON.parse(fs.readFileSync(path.join(PASTA_QUIZZES, arquivo), 'utf8'));
+    if (!Array.isArray(dados.perguntas) || dados.perguntas.length === 0) continue;
+    mapa.set(arquivo, { titulo: dados.titulo || arquivo, perguntas: dados.perguntas });
+  }
+  return mapa;
+}
+
+const bancos = carregarBancos();
 
 const app = express();
+app.set('trust proxy', 1); // Render fica atras de proxy, sem isso req.protocol vem http
 
 // sem no-cache o celular fica com a tela da versao anterior depois do deploy
 app.use(
@@ -28,20 +44,47 @@ app.get('/host', (req, res) => {
 
 app.get('/play', (req, res) => res.sendFile(path.join(__dirname, 'public', 'play.html')));
 
+app.get('/qr.svg', async (req, res) => {
+  const url = req.protocol + '://' + req.get('host') + '/play';
+  try {
+    const svg = await QRCode.toString(url, {
+      type: 'svg',
+      margin: 1,
+      color: { dark: '#151a1f', light: '#f2eee6' }
+    });
+    res.type('image/svg+xml');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.send(svg);
+  } catch (erro) {
+    console.error(erro);
+    res.status(500).send('erro ao gerar qr');
+  }
+});
+
 const servidor = http.createServer(app);
 const wss = new WebSocketServer({ server: servidor });
 
 const hosts = new Set();
-const jogadores = new Map(); // id do jogador -> { id, nome, pontos, escolha, ganhou, entrouEm, ws }
+const jogadores = new Map(); // id -> { id, nome, pontos, pontosAntes, escolha, ganhou, entrouEm, ws }
 
 const jogo = {
   estado: 'aguardando', // aguardando | pergunta | resultado | fim
+  tema: null,
   indice: -1,
   abertaEm: 0
 };
 
+function banco() {
+  return jogo.tema ? bancos.get(jogo.tema) : null;
+}
+
+function perguntas() {
+  const b = banco();
+  return b ? b.perguntas : [];
+}
+
 function perguntaAtual() {
-  return perguntas[jogo.indice] || null;
+  return perguntas()[jogo.indice] || null;
 }
 
 function online(j) {
@@ -59,10 +102,21 @@ function pontuar(pergunta, ms) {
   return Math.round(1000 * (1 - fracao / 2));
 }
 
+// leva a posicao anterior junto, e o que a tela do host usa pra animar a subida
 function placar() {
-  return [...jogadores.values()]
-    .map((j) => ({ nome: j.nome, pontos: j.pontos }))
-    .sort((a, b) => b.pontos - a.pontos);
+  const lista = [...jogadores.values()];
+  const ordemAntes = [...lista].sort((a, b) => b.pontosAntes - a.pontosAntes).map((j) => j.id);
+  return lista
+    .sort((a, b) => b.pontos - a.pontos)
+    .map((j, i) => ({
+      id: j.id,
+      nome: j.nome,
+      pontos: j.pontos,
+      antes: j.pontosAntes,
+      ganhou: j.ganhou,
+      posicao: i + 1,
+      posicaoAntes: ordemAntes.indexOf(j.id) + 1
+    }));
 }
 
 function estadoHost() {
@@ -73,8 +127,15 @@ function estadoHost() {
       : [...jogadores.values()].filter(online);
   return {
     estado: jogo.estado,
+    tema: jogo.tema,
+    tituloTema: banco() ? banco().titulo : '',
+    temas: [...bancos.entries()].map(([arquivo, b]) => ({
+      arquivo,
+      titulo: b.titulo,
+      total: b.perguntas.length
+    })),
     numero: jogo.indice + 1,
-    total: perguntas.length,
+    total: perguntas().length,
     enunciado: p ? p.enunciado : '',
     alternativas: p ? p.alternativas : [],
     correta: jogo.estado === 'resultado' && p ? p.correta : null,
@@ -111,12 +172,13 @@ function transmitir() {
 
 function abrirPergunta() {
   jogo.indice += 1;
-  if (jogo.indice >= perguntas.length) {
+  if (jogo.indice >= perguntas().length) {
     jogo.estado = 'fim';
     transmitir();
     return;
   }
   jogadores.forEach((j) => {
+    j.pontosAntes = j.pontos; // guarda o valor de onde a animacao do placar sai
     j.escolha = null;
     j.ganhou = 0;
   });
@@ -130,13 +192,15 @@ function fecharPergunta() {
   transmitir();
 }
 
-// volta pro comeco sem reiniciar o servico
+// volta pro comeco sem reiniciar o servico, e libera trocar de tema
 function reiniciar() {
   jogo.estado = 'aguardando';
+  jogo.tema = null;
   jogo.indice = -1;
   jogo.abertaEm = 0;
   jogadores.forEach((j) => {
     j.pontos = 0;
+    j.pontosAntes = 0;
     j.escolha = null;
     j.ganhou = 0;
     j.entrouEm = Date.now();
@@ -171,6 +235,14 @@ wss.on('connection', (ws) => {
       return;
     }
 
+    if (msg.tipo === 'tema') {
+      if (!hosts.has(ws) || jogo.estado !== 'aguardando') return;
+      if (!bancos.has(msg.arquivo)) return;
+      jogo.tema = msg.arquivo;
+      transmitir();
+      return;
+    }
+
     if (msg.tipo === 'entrar_jogador') {
       const id = String(msg.id || '').slice(0, 40);
       if (!id) return;
@@ -180,7 +252,16 @@ wss.on('connection', (ws) => {
         antigo.ws = ws; // voltou depois de cair, mantem pontos e resposta da rodada
         antigo.nome = nome;
       } else {
-        jogadores.set(id, { id, nome, pontos: 0, escolha: null, ganhou: 0, entrouEm: Date.now(), ws });
+        jogadores.set(id, {
+          id,
+          nome,
+          pontos: 0,
+          pontosAntes: 0,
+          escolha: null,
+          ganhou: 0,
+          entrouEm: Date.now(),
+          ws
+        });
       }
       ws.idJogador = id;
       transmitir();
@@ -206,6 +287,7 @@ wss.on('connection', (ws) => {
       if (!hosts.has(ws)) return;
       if (jogo.estado === 'fim') reiniciar();
       else if (jogo.estado === 'pergunta') fecharPergunta();
+      else if (jogo.estado === 'aguardando' && !jogo.tema) return;
       else abrirPergunta();
     }
   });

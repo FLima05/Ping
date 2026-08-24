@@ -13,9 +13,23 @@
     </header>
 
     <main id="palco">
-      <h1 id="enunciado">Aguardando jogadores</h1>
-      <ol id="alternativas" class="alternativas"></ol>
-      <section id="secao-placar">
+      <section id="abertura">
+        <div id="qr-bloco">
+          <img id="qr" src="/qr.svg" alt="QR code para entrar na partida" />
+          <p id="url-play"></p>
+        </div>
+        <div id="tema-bloco">
+          <h2>Escolha o tema</h2>
+          <ul id="temas" class="temas"></ul>
+        </div>
+      </section>
+
+      <section id="rodada" hidden>
+        <h1 id="enunciado"></h1>
+        <ol id="alternativas" class="alternativas"></ol>
+      </section>
+
+      <section id="secao-placar" hidden>
         <h2>Placar</h2>
         <ol id="placar" class="placar"></ol>
       </section>

@@ -1,0 +1,45 @@
+{
+  "titulo": "CSS",
+  "perguntas": [
+    {
+      "id": 1,
+      "enunciado": "Qual desses e um seletor de classe?",
+      "alternativas": [".botao", "#botao", "botao", "*botao"],
+      "correta": 0,
+      "tempo": 15
+    },
+    {
+      "id": 2,
+      "enunciado": "Qual propriedade muda a cor do texto?",
+      "alternativas": ["background-color", "color", "font-color", "text-color"],
+      "correta": 1,
+      "tempo": 15
+    },
+    {
+      "id": 3,
+      "enunciado": "Qual unidade e relativa ao tamanho da fonte do elemento raiz?",
+      "alternativas": ["em", "rem", "px", "pt"],
+      "correta": 1,
+      "tempo": 20
+    },
+    {
+      "id": 4,
+      "enunciado": "O que box-sizing: border-box faz?",
+      "alternativas": [
+        "Inclui padding e borda dentro da largura declarada",
+        "Remove a borda do elemento",
+        "Dobra a margem externa",
+        "Ignora o padding no calculo e fora dele"
+      ],
+      "correta": 0,
+      "tempo": 20
+    },
+    {
+      "id": 5,
+      "enunciado": "Qual propriedade define as colunas de um grid?",
+      "alternativas": ["grid-columns", "grid-template-columns", "columns-template", "flex-columns"],
+      "correta": 1,
+      "tempo": 20
+    }
+  ]
+}

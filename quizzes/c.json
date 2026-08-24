@@ -1,0 +1,40 @@
+{
+  "titulo": "Linguagem C",
+  "perguntas": [
+    {
+      "id": 1,
+      "enunciado": "Em qual funcao a execucao do programa comeca?",
+      "alternativas": ["start()", "main()", "init()", "run()"],
+      "correta": 1,
+      "tempo": 15
+    },
+    {
+      "id": 2,
+      "enunciado": "Qual especificador do printf imprime um inteiro?",
+      "alternativas": ["%s", "%d", "%f", "%c"],
+      "correta": 1,
+      "tempo": 15
+    },
+    {
+      "id": 3,
+      "enunciado": "Qual operador devolve o endereco de uma variavel?",
+      "alternativas": ["*", "&", "#", "->"],
+      "correta": 1,
+      "tempo": 20
+    },
+    {
+      "id": 4,
+      "enunciado": "Qual biblioteca traz printf e scanf?",
+      "alternativas": ["stdlib.h", "stdio.h", "string.h", "math.h"],
+      "correta": 1,
+      "tempo": 15
+    },
+    {
+      "id": 5,
+      "enunciado": "Como se declara um vetor de 10 inteiros?",
+      "alternativas": ["int v[10];", "int v(10);", "array v[10];", "int v{10};"],
+      "correta": 0,
+      "tempo": 20
+    }
+  ]
+}
