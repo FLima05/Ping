@@ -14,10 +14,18 @@ const elUrlPlay = document.getElementById('url-play');
 const elRodada = document.getElementById('rodada');
 const elEnunciado = document.getElementById('enunciado');
 const elAlternativas = document.getElementById('alternativas');
+const elAvisoSuspense = document.getElementById('aviso-suspense');
 const elSecaoPlacar = document.getElementById('secao-placar');
+const elTituloPlacar = document.getElementById('titulo-secao-placar');
+const elContainerPodio = document.getElementById('container-podio');
 const elPlacar = document.getElementById('placar');
 const elContador = document.getElementById('contador');
 const elAvancar = document.getElementById('avancar');
+
+const elContainerTempo = document.getElementById('container-tempo');
+const elBarraTempo = document.getElementById('barra-tempo');
+const elTextoTempo = document.getElementById('texto-tempo');
+const elArquibancada = document.getElementById('arquibancada');
 
 const chave = new URLSearchParams(location.search).get('chave') || '';
 let ws = null;
@@ -25,6 +33,75 @@ let animando = false;
 let ultimaAnimacao = '';
 
 elUrlPlay.textContent = location.origin + '/play';
+
+const emojisDisponiveis = ['😎', '🤠', '👽', '👾', '🤖', '👻', '🚀', '🦖', '🦄', '🐸', '🦉', '🦊', '🐙', '🥑', '🍔', '🍕', '🎮', '🎲', '🎸', '🤡', '🐒'];
+const mapaDeEmojis = new Map();
+
+function obterEmoji(nome) {
+  if (!mapaDeEmojis.has(nome)) {
+    const sorteado = emojisDisponiveis[Math.floor(Math.random() * emojisDisponiveis.length)];
+    mapaDeEmojis.set(nome, sorteado);
+  }
+  return mapaDeEmojis.get(nome);
+}
+
+let timerInterval = null;
+let numeroPerguntaAtual = -1; 
+let timeoutSuspense = null; 
+const TEMPO_TOTAL_SEG = 30; 
+const TEMPO_SUSPENSE_MS = 3000; 
+const PONTOS_MAXIMOS = 1000;
+const PONTOS_MINIMOS = 200;
+const TOLERANCIA_MAX_PTS_MS = 1500; 
+
+function iniciarTimer(tempoFimMs) {
+  pararTimer();
+  elContainerTempo.style.display = 'block';
+
+  timerInterval = setInterval(() => {
+    const agora = Date.now();
+    const restanteMs = Math.max(0, tempoFimMs - agora);
+    const totalMs = TEMPO_TOTAL_SEG * 1000;
+
+    const porcentagem = (restanteMs / totalMs) * 100;
+    elBarraTempo.style.width = porcentagem + '%';
+
+    if (restanteMs <= 5000) {
+      elBarraTempo.style.backgroundColor = '#d9534f';
+    } else {
+      elBarraTempo.style.backgroundColor = '#5bc0de';
+    }
+
+    if (restanteMs > 0) {
+      let pontos = 0;
+      const tempoParaDecair = totalMs - TOLERANCIA_MAX_PTS_MS;
+
+      if (restanteMs >= tempoParaDecair) {
+        pontos = PONTOS_MAXIMOS;
+      } else {
+        const proporcao = restanteMs / tempoParaDecair;
+        pontos = Math.round(PONTOS_MINIMOS + (PONTOS_MAXIMOS - PONTOS_MINIMOS) * proporcao);
+      }
+
+      const restanteSeg = Math.ceil(restanteMs / 1000);
+      elTextoTempo.textContent = `${restanteSeg}s restantes — Máx: ${pontos} pts`;
+    } else {
+      elTextoTempo.textContent = `Tempo esgotado!`;
+      pararTimer();
+    }
+  }, 50);
+}
+
+function pararTimer() {
+  if (timerInterval) {
+    clearInterval(timerInterval);
+    timerInterval = null;
+  }
+  if (timeoutSuspense) {
+    clearTimeout(timeoutSuspense);
+    timeoutSuspense = null;
+  }
+}
 
 function enviar(dados) {
   if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(dados));
@@ -45,7 +122,6 @@ function conectar() {
 
 conectar();
 
-// segura a conexao e evita o servico dormir por falta de trafego
 setInterval(() => enviar({ tipo: 'ping' }), 25000);
 
 elAvancar.addEventListener('click', () => enviar({ tipo: 'proxima' }));
@@ -60,7 +136,42 @@ function contar(elemento, de, ate, ms) {
   requestAnimationFrame(passo);
 }
 
-// modo: 'antes' desenha o placar da rodada passada, 'anima' desliza e conta os pontos, 'direto' so redesenha
+function desenharPodio(lista) {
+  elContainerPodio.innerHTML = '';
+  if (!lista || lista.length === 0) {
+    elContainerPodio.style.display = 'none';
+    return;
+  }
+
+  elContainerPodio.style.display = 'flex';
+  const p1 = lista[0];
+  const p2 = lista[1];
+  const p3 = lista[2];
+
+  const ordemPodio = [
+    { dados: p2, posicao: 2, classe: 'podio-2', label: '2º' },
+    { dados: p1, posicao: 1, classe: 'podio-1', label: '1º' },
+    { dados: p3, posicao: 3, classe: 'podio-3', label: '3º' }
+  ];
+
+  ordemPodio.forEach((item) => {
+    if (!item.dados) return;
+    const coluna = document.createElement('div');
+    coluna.className = `bloco-podio ${item.classe}`;
+    const emoji = obterEmoji(item.dados.nome);
+
+    coluna.innerHTML = `
+      <div style="text-align: center; margin-bottom: 0.5rem;">
+        <div class="avatar-podio">${emoji}</div>
+        <div class="nome-podio">${item.dados.nome}</div>
+        <div class="pontos-podio">${item.dados.pontos} pts</div>
+      </div>
+      <div style="font-size: 1.2rem; font-weight: 900; opacity: 0.7;">${item.label}</div>
+    `;
+    elContainerPodio.appendChild(coluna);
+  });
+}
+
 function desenharPlacar(lista, modo) {
   const topoAnterior = new Map();
   elPlacar.querySelectorAll('li').forEach((li) => {
@@ -73,7 +184,8 @@ function desenharPlacar(lista, modo) {
     item.dataset.id = linha.id;
 
     const nome = document.createElement('span');
-    nome.textContent = (modo === 'antes' ? linha.posicaoAntes : i + 1) + '. ' + linha.nome;
+    const emoji = obterEmoji(linha.nome); 
+    nome.textContent = (modo === 'antes' ? linha.posicaoAntes : i + 1) + '. ' + emoji + ' ' + linha.nome;
 
     const ganho = document.createElement('span');
     ganho.className = 'ganho';
@@ -100,7 +212,6 @@ function desenharPlacar(lista, modo) {
 
   if (modo !== 'anima') return;
 
-  // FLIP: cada linha volta pro lugar antigo e desliza ate o novo
   elPlacar.querySelectorAll('li').forEach((li) => {
     const topo = topoAnterior.get(li.dataset.id);
     if (topo === undefined) return;
@@ -131,10 +242,48 @@ function desenharTemas(e) {
     const item = document.createElement('li');
     const botao = document.createElement('button');
     botao.className = tema.arquivo === e.tema ? 'tema escolhido' : 'tema';
-    botao.textContent = tema.titulo + ', ' + tema.total + ' perguntas';
+    // Faz o botão ocupar 100% da largura da lista vertical
+    botao.style.width = '100%';
+    botao.style.textAlign = 'left';
+    botao.style.padding = '0.75rem 1rem';
+    botao.style.cursor = 'pointer';
+    
+    botao.textContent = '📁 ' + tema.titulo + ' (' + tema.total + ' perguntas)';
     botao.addEventListener('click', () => enviar({ tipo: 'tema', arquivo: tema.arquivo }));
     item.appendChild(botao);
     elTemas.appendChild(item);
+  });
+}
+
+function desenharArquibancada(e) {
+  elArquibancada.innerHTML = '';
+  const listaJogadores = e.jogadores || e.placar || [];
+
+  if (listaJogadores.length === 0) {
+    elArquibancada.innerHTML = '<span style="color: #666; font-style: italic;">Aguardando jogadores...</span>';
+    return;
+  }
+
+  listaJogadores.forEach((jogador) => {
+    const cracha = document.createElement('span');
+    const nomeJogador = typeof jogador === 'string' ? jogador : jogador.nome;
+    const emoji = obterEmoji(nomeJogador);
+    
+    cracha.textContent = `${emoji} ${nomeJogador}`;
+    cracha.className = 'cracha-animado';
+    cracha.style.animationDelay = `${Math.random() * 2}s`;
+    
+    cracha.style.backgroundColor = 'rgba(91, 192, 222, 0.15)'; 
+    cracha.style.border = '2px solid #5bc0de';
+    cracha.style.color = '#fff';
+    cracha.style.padding = '0.6rem 1rem';
+    cracha.style.borderRadius = '25px';
+    cracha.style.fontWeight = 'bold';
+    cracha.style.fontSize = '1.2rem';
+    cracha.style.boxShadow = '0 4px 6px rgba(0,0,0,0.3)';
+    cracha.style.transition = 'transform 0.2s';
+    
+    elArquibancada.appendChild(cracha);
   });
 }
 
@@ -144,14 +293,57 @@ function desenhar(e) {
   else if (e.estado === 'fim') elNumero.textContent = 'Fim da partida, ' + e.tituloTema;
   else elNumero.textContent = 'Sala aberta';
 
+  if (e.estado === 'pergunta') {
+    if (numeroPerguntaAtual !== e.numero) {
+      numeroPerguntaAtual = e.numero;
+      
+      elAlternativas.innerHTML = '';
+      elAvisoSuspense.style.display = 'block';
+      elContainerTempo.style.display = 'none';
+
+      timeoutSuspense = setTimeout(() => {
+        elAvisoSuspense.style.display = 'none';
+        
+        e.alternativas.forEach((texto, i) => {
+          const item = document.createElement('li');
+          item.className = e.correta === i ? 'alternativa correta' : 'alternativa';
+          item.textContent = letras[i] + '. ' + texto;
+          elAlternativas.appendChild(item);
+        });
+
+        const fimMs = e.tempoFim ? e.tempoFim : Date.now() + (TEMPO_TOTAL_SEG * 1000);
+        iniciarTimer(fimMs);
+      }, TEMPO_SUSPENSE_MS);
+    }
+  } else {
+    pararTimer();
+    elAvisoSuspense.style.display = 'none';
+    elContainerTempo.style.display = 'none';
+    numeroPerguntaAtual = -1;
+  }
+
   elAbertura.hidden = e.estado !== 'aguardando';
   elRodada.hidden = e.estado === 'aguardando' || e.estado === 'fim';
   elSecaoPlacar.hidden = e.estado === 'aguardando' || e.estado === 'pergunta';
 
-  if (e.estado === 'aguardando') desenharTemas(e);
+  if (e.estado === 'fim') {
+    elTituloPlacar.textContent = '🏆 Pódio Final';
+    desenharPodio(e.placar);
+  } else {
+    elTituloPlacar.textContent = 'Placar';
+    elContainerPodio.style.display = 'none';
+  }
 
-  if (!elRodada.hidden) {
+  if (e.estado === 'aguardando') {
+    desenharTemas(e);
+    desenharArquibancada(e);
+  }
+
+  if (!elRodada.hidden && e.estado === 'pergunta' && timeoutSuspense === null) {
     elEnunciado.textContent = e.enunciado;
+  } else if (!elRodada.hidden && e.estado !== 'pergunta') {
+    elEnunciado.textContent = e.enunciado;
+    elAvisoSuspense.style.display = 'none';
     elAlternativas.innerHTML = '';
     e.alternativas.forEach((texto, i) => {
       const item = document.createElement('li');
@@ -159,6 +351,8 @@ function desenhar(e) {
       item.textContent = letras[i] + '. ' + texto;
       elAlternativas.appendChild(item);
     });
+  } else if (!elRodada.hidden && e.estado === 'pergunta') {
+    elEnunciado.textContent = e.enunciado; 
   }
 
   const marca = e.estado + e.numero;
