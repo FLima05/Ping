@@ -3,30 +3,37 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <meta name="theme-color" content="#151a1f" />
+    <meta name="theme-color" content="#111111" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
     <title>Ping</title>
     <link rel="stylesheet" href="/css/play.css" />
   </head>
   <body>
     <section id="entrada">
-      <h1>Seu nome</h1>
-      <input
-        id="nome"
-        maxlength="20"
-        autocomplete="off"
-        autocorrect="off"
-        autocapitalize="words"
-        spellcheck="false"
-        enterkeyhint="go"
-      />
-      <button id="entrar" class="botao">Entrar</button>
+      <div class="entrada-card">
+        <div class="logo">Ping</div>
+        <p class="subtitulo">Digite seu nome e entre na partida</p>
+        <input
+          id="nome"
+          maxlength="20"
+          autocomplete="off"
+          autocorrect="off"
+          autocapitalize="words"
+          spellcheck="false"
+          enterkeyhint="go"
+          placeholder="Seu nome"
+        />
+        <button id="entrar" class="botao">Entrar</button>
+      </div>
     </section>
 
     <section id="jogo" hidden>
       <p id="aviso">Aguarde o início</p>
       <div id="alternativas" class="botoes"></div>
-      <p id="pontos"></p>
-      <p id="conexao"></p>
+      <div class="rodape-jogo">
+        <p id="pontos"></p>
+        <p id="conexao"></p>
+      </div>
     </section>
 
     <script src="/js/play.js"></script>

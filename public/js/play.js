@@ -75,9 +75,13 @@ function desenhar(e) {
     e.alternativas.forEach((texto, i) => {
       const botao = document.createElement('button');
       botao.className = 'resposta';
-      botao.textContent = letras[i] + '. ' + texto;
+      botao.dataset.indice = i;          // útil se precisar
+      // NÃO coloca o texto da resposta — só a cor
+      botao.setAttribute('aria-label', letras[i]);
       botao.addEventListener('click', () => {
-        if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ tipo: 'responder', indice: i }));
+        if (ws && ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({ tipo: 'responder', indice: i }));
+        }
       });
       elAlternativas.appendChild(botao);
     });
@@ -87,7 +91,7 @@ function desenhar(e) {
     if (e.escolha === null) {
       elAviso.textContent = 'Sem resposta';
     } else if (e.acertou) {
-      elAviso.textContent = 'Acertou, mais ' + e.ganhou;
+      elAviso.textContent = 'Acertou! +' + e.ganhou;
       elAviso.className = 'certo';
     } else {
       elAviso.textContent = 'Errou';
@@ -99,5 +103,5 @@ function desenhar(e) {
     elAviso.textContent = 'Aguarde o início';
   }
 
-  elPontos.textContent = e.nome + ': ' + e.pontos + ' pontos';
+  elPontos.textContent = e.nome + ': ' + e.pontos + ' pts';
 }

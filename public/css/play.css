@@ -1,12 +1,19 @@
 :root {
-  --fundo: #151a1f;
-  --superficie: #1f262d;
-  --borda: #3c4753;
-  --texto: #f2eee6;
-  --apagado: #aab3bc;
-  --acento: #c9522a;
-  --certo: #2c6b45;
-  --errado: #98301f;
+  --fundo: #0d0d0d;
+  --superficie: #1a1a1a;
+  --borda: #2e2e2e;
+  --texto: #ffffff;
+  --apagado: #999;
+
+  --vermelho: #e21b3c;
+  --azul: #1368ce;
+  --amarelo: #d89e00;
+  --verde: #26890c;
+  --roxo: #864cbf;
+
+  --certo: #2ecc71;
+  --errado: #e74c3c;
+  --radius: 20px;
 }
 
 *,
@@ -15,7 +22,6 @@
   box-sizing: border-box;
   margin: 0;
   padding: 0;
-  border-radius: 0;
 }
 
 [hidden] {
@@ -27,138 +33,214 @@ html {
 }
 
 body {
-  background-color: var(--fundo);
+  background: var(--fundo);
   color: var(--texto);
-  font-family: Helvetica, Arial, sans-serif;
+  font-family: "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
   display: flex;
   flex-direction: column;
-  /* dvh acompanha a barra do navegador do celular, vh nao */
   min-height: 100dvh;
-  padding: 14px;
-  padding-bottom: calc(14px + env(safe-area-inset-bottom));
-  padding-left: calc(14px + env(safe-area-inset-left));
-  padding-right: calc(14px + env(safe-area-inset-right));
+  padding: 16px;
+  padding-bottom: calc(16px + env(safe-area-inset-bottom));
+  padding-left: calc(16px + env(safe-area-inset-left));
+  padding-right: calc(16px + env(safe-area-inset-right));
   overscroll-behavior: none;
   -webkit-tap-highlight-color: transparent;
 }
 
+/* ===== ENTRADA ===== */
 #entrada {
   flex: 1;
   display: flex;
-  flex-direction: column;
+  align-items: center;
   justify-content: center;
-  gap: 14px;
 }
 
-#entrada h1 {
-  font-size: 30px;
+.entrada-card {
+  width: 100%;
+  max-width: 360px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  text-align: center;
+}
+
+.logo {
+  font-size: 48px;
+  font-weight: 900;
+  letter-spacing: -2px;
+  background: linear-gradient(135deg, #e21b3c, #1368ce, #d89e00, #26890c);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.subtitulo {
+  font-size: 15px;
+  color: var(--apagado);
+  font-weight: 500;
 }
 
 #nome {
   width: 100%;
-  /* abaixo de 16px o iOS da zoom sozinho ao focar */
   font-size: 20px;
-  padding: 16px;
-  background-color: var(--superficie);
+  font-weight: 600;
+  padding: 16px 18px;
+  background: var(--superficie);
   color: var(--texto);
-  border: 3px solid var(--borda);
+  border: 3px solid #333;
+  border-radius: var(--radius);
   font-family: inherit;
+  outline: none;
+  text-align: center;
+}
+
+#nome:focus {
+  border-color: #1368ce;
+  box-shadow: 0 0 0 4px rgba(19, 104, 206, 0.25);
+}
+
+#nome::placeholder {
+  color: #555;
 }
 
 .botao {
   width: 100%;
-  min-height: 64px;
-  font-size: 22px;
-  font-weight: bold;
-  background-color: var(--acento);
-  color: var(--texto);
-  border: 0;
+  min-height: 60px;
+  font-size: 19px;
+  font-weight: 800;
+  background: #fff;
+  color: #111;
+  border: none;
+  border-radius: 999px;
   font-family: inherit;
+  cursor: pointer;
+  box-shadow: 0 6px 0 #bbb;
   touch-action: manipulation;
   -webkit-user-select: none;
   user-select: none;
 }
 
+.botao:active {
+  transform: translateY(4px);
+  box-shadow: 0 2px 0 #bbb;
+}
+
+/* ===== JOGO ===== */
 #jogo {
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 12px;
+  min-height: 0;
 }
 
 #aviso {
-  font-size: 26px;
-  font-weight: bold;
-  padding: 10px 0;
+  font-size: 18px;
+  font-weight: 800;
+  padding: 14px 16px;
+  border-radius: var(--radius);
+  text-align: center;
+  min-height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--superficie);
+  border: 3px solid #2a2a2a;
+  flex-shrink: 0;
 }
 
 #aviso.certo {
-  background-color: var(--certo);
-  padding: 16px;
+  background: var(--certo);
+  border-color: #27ae60;
+  color: #111;
 }
 
 #aviso.errado {
-  background-color: var(--errado);
-  padding: 16px;
+  background: var(--errado);
+  border-color: #c0392b;
+  color: #fff;
 }
 
+/* ===== BOTÕES SÓ DE COR (estilo Kahoot) ===== */
 .botoes {
   flex: 1;
   display: grid;
-  /* divide a altura livre entre as alternativas, sem rolagem */
-  grid-auto-rows: 1fr;
-  gap: 10px;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 1fr 1fr;
+  gap: 12px;
+  min-height: 0;
 }
 
 .resposta {
-  display: flex;
-  align-items: center;
   width: 100%;
-  min-height: 72px;
-  font-size: 22px;
-  line-height: 1.2;
-  text-align: left;
-  padding: 14px;
-  background-color: var(--superficie);
-  color: var(--texto);
-  border: 3px solid var(--borda);
-  font-family: inherit;
+  height: 100%;
+  min-height: 0;
+  border: none;
+  border-radius: var(--radius);
+  cursor: pointer;
   touch-action: manipulation;
   -webkit-user-select: none;
   user-select: none;
+  box-shadow: 0 6px 0 rgba(0, 0, 0, 0.4);
+  transition: transform 0.08s, box-shadow 0.08s;
+  /* sem texto */
+  font-size: 0;
+  color: transparent;
 }
 
-#pontos {
-  font-size: 18px;
+.resposta:nth-child(1) { background: var(--vermelho); }
+.resposta:nth-child(2) { background: var(--azul); }
+.resposta:nth-child(3) { background: var(--amarelo); }
+.resposta:nth-child(4) { background: var(--verde); }
+.resposta:nth-child(5) { background: var(--roxo); }
+.resposta:nth-child(6) { background: #e67e22; }
+
+.resposta:active {
+  transform: translateY(5px);
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.4);
+}
+
+.rodape-jogo {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 14px;
+  font-weight: 600;
   color: var(--apagado);
+  flex-shrink: 0;
+  padding-top: 4px;
 }
 
-#conexao {
-  font-size: 16px;
-  color: var(--acento);
-}
-
-/* celular baixinho */
-@media (max-height: 640px) {
+/* ===== TELAS BAIXAS ===== */
+@media (max-height: 600px) {
   #aviso {
-    font-size: 22px;
+    font-size: 16px;
+    min-height: 44px;
+    padding: 10px;
   }
-  .resposta {
-    font-size: 19px;
-    min-height: 60px;
-  }
-}
 
-/* deitado */
-@media (orientation: landscape) and (max-height: 480px) {
   .botoes {
-    grid-template-columns: 1fr 1fr;
+    gap: 10px;
   }
+}
+
+/* ===== LANDSCAPE ===== */
+@media (orientation: landscape) and (max-height: 480px) {
+  body {
+    padding: 10px;
+  }
+
+  .botoes {
+    gap: 10px;
+  }
+
   #aviso {
-    font-size: 20px;
-    padding: 4px 0;
+    font-size: 15px;
+    min-height: auto;
+    padding: 8px 12px;
   }
-  #pontos {
+
+  .rodape-jogo {
     display: none;
   }
 }
