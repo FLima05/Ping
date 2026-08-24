@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Quiz ao vivo</title>
+    <link rel="stylesheet" href="/css/style.css" />
+  </head>
+  <body class="jogador">
+    <section id="entrada">
+      <h1>Seu nome</h1>
+      <input id="nome" maxlength="20" autocomplete="off" />
+      <button id="entrar" class="botao">Entrar</button>
+    </section>
+
+    <section id="jogo" hidden>
+      <p id="aviso">Aguarde o início</p>
+      <div id="alternativas" class="botoes"></div>
+      <p id="pontos"></p>
+    </section>
+
+    <script src="/js/play.js"></script>
+  </body>
+</html>

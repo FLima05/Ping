@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Quiz ao vivo, host</title>
+    <link rel="stylesheet" href="/css/style.css" />
+  </head>
+  <body class="host">
+    <header class="barra">
+      <span id="numero">Sala aberta</span>
+      <span id="tempo"></span>
+    </header>
+
+    <main id="palco">
+      <h1 id="enunciado">Aguardando jogadores</h1>
+      <ol id="alternativas" class="alternativas"></ol>
+      <section id="secao-placar">
+        <h2>Placar</h2>
+        <ol id="placar" class="placar"></ol>
+      </section>
+    </main>
+
+    <footer class="barra rodape">
+      <span id="contador">0 de 0 responderam</span>
+      <button id="avancar" class="botao botao-barra">Iniciar</button>
+    </footer>
+
+    <script src="/js/host.js"></script>
+  </body>
+</html>

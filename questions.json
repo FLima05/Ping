@@ -1,0 +1,37 @@
+[
+  {
+    "id": 1,
+    "enunciado": "Qual comando cria um repositorio Git novo na pasta atual?",
+    "alternativas": ["git init", "git start", "git create", "git new"],
+    "correta": 0,
+    "tempo": 20
+  },
+  {
+    "id": 2,
+    "enunciado": "Em HTML, qual tag define o titulo de maior nivel do conteudo?",
+    "alternativas": ["<head>", "<title>", "<h1>", "<h6>"],
+    "correta": 2,
+    "tempo": 15
+  },
+  {
+    "id": 3,
+    "enunciado": "Em JavaScript, o que typeof [] devolve?",
+    "alternativas": ["array", "object", "list", "undefined"],
+    "correta": 1,
+    "tempo": 20
+  },
+  {
+    "id": 4,
+    "enunciado": "Qual codigo HTTP indica que o recurso nao foi encontrado?",
+    "alternativas": ["200", "301", "404", "500"],
+    "correta": 2,
+    "tempo": 15
+  },
+  {
+    "id": 5,
+    "enunciado": "Qual comando instala as dependencias listadas no package.json?",
+    "alternativas": ["npm run", "npm install", "npm start", "npm init"],
+    "correta": 1,
+    "tempo": 20
+  }
+]
