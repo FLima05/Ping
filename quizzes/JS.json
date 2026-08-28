@@ -34,7 +34,8 @@
       "enunciado": "Qual operador é usado para comparação estrita (valor e tipo)?",
       "alternativas": ["==", "=", "===", "!="],
       "correta": 2,
-      "tempo": 15
+      "tempo": 15,
+      "dobro": true
     }
   ]
 }

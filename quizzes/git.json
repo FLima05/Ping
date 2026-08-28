@@ -39,7 +39,8 @@
       "enunciado": "Qual arquivo lista o que o Git deve ignorar?",
       "alternativas": [".gitkeep", ".gitignore", "ignore.txt", ".gitconfig"],
       "correta": 1,
-      "tempo": 15
+      "tempo": 15,
+      "dobro": true
     }
   ]
 }

@@ -6,18 +6,27 @@ const rotulos = {
   fim: 'Recomeçar'
 };
 
-const elNumero = document.getElementById('numero');
-const elConexao = document.getElementById('conexao');
-const elAbertura = document.getElementById('abertura');
-const elTemas = document.getElementById('temas');
-const elUrlPlay = document.getElementById('url-play');
-const elRodada = document.getElementById('rodada');
-const elEnunciado = document.getElementById('enunciado');
-const elAlternativas = document.getElementById('alternativas');
-const elSecaoPlacar = document.getElementById('secao-placar');
-const elPlacar = document.getElementById('placar');
-const elContador = document.getElementById('contador');
-const elAvancar = document.getElementById('avancar');
+const el = (id) => document.getElementById(id);
+const elNumero = el('numero');
+const elConexao = el('conexao');
+const elAbertura = el('abertura');
+const elTemas = el('temas');
+const elModos = el('modos');
+const elTituloLobby = el('titulo-lobby');
+const elSortear = el('sortear');
+const elLobby = el('lobby');
+const elUrlPlay = el('url-play');
+const elRodada = el('rodada');
+const elDobro = el('dobro');
+const elEnunciado = el('enunciado');
+const elAlternativas = el('alternativas');
+const elRapido = el('rapido');
+const elSecaoPlacar = el('secao-placar');
+const elPlacarEquipes = el('placar-equipes');
+const elPlacar = el('placar');
+const elRelatorio = el('relatorio');
+const elContador = el('contador');
+const elAvancar = el('avancar');
 
 const chave = new URLSearchParams(location.search).get('chave') || '';
 let ws = null;
@@ -53,10 +62,19 @@ function conectar() {
 
 conectar();
 
-// segura a conexao e evita o servico dormir por falta de trafego
 setInterval(() => enviar({ tipo: 'ping' }), 25000);
 
 elAvancar.addEventListener('click', () => enviar({ tipo: 'proxima' }));
+elSortear.addEventListener('click', () => enviar({ tipo: 'sortear' }));
+elModos.querySelectorAll('button').forEach((botao) => {
+  botao.addEventListener('click', () =>
+    enviar({
+      tipo: 'modo',
+      modo: botao.dataset.modo,
+      quantidade: Number(botao.dataset.quantidade) || 0
+    })
+  );
+});
 
 function contar(elemento, de, ate, ms) {
   const inicio = performance.now();
@@ -68,7 +86,35 @@ function contar(elemento, de, ate, ms) {
   requestAnimationFrame(passo);
 }
 
-// modo: 'antes' desenha o placar da rodada passada, 'anima' desliza e conta os pontos, 'direto' so redesenha
+function linhaPlacar(linha, rotuloPosicao, valor, modo) {
+  const item = document.createElement('li');
+  item.dataset.id = linha.id;
+
+  const nome = document.createElement('span');
+  nome.textContent = rotuloPosicao + '. ' + linha.nome;
+
+  const ganho = document.createElement('span');
+  ganho.className = 'ganho';
+  if (modo !== 'antes') {
+    const partes = [];
+    if (linha.ganhou > 0) partes.push('+' + linha.ganhou);
+    const salto = linha.posicaoAntes - linha.posicao;
+    if (salto > 0) partes.push('sobe ' + salto);
+    else if (salto < 0) partes.push('cai ' + -salto);
+    ganho.textContent = partes.join('   ');
+  }
+
+  const pontos = document.createElement('span');
+  pontos.className = 'pontos';
+  pontos.textContent = valor;
+
+  item.appendChild(nome);
+  item.appendChild(ganho);
+  item.appendChild(pontos);
+  return { item, pontos };
+}
+
+// modo: 'antes' desenha o placar da rodada passada, 'anima' desliza e conta, 'direto' so redesenha
 function desenharPlacar(lista, modo) {
   const topoAnterior = new Map();
   elPlacar.querySelectorAll('li').forEach((li) => {
@@ -77,32 +123,10 @@ function desenharPlacar(lista, modo) {
 
   elPlacar.innerHTML = '';
   lista.forEach((linha, i) => {
-    const item = document.createElement('li');
-    item.dataset.id = linha.id;
-
-    const nome = document.createElement('span');
-    nome.textContent = (modo === 'antes' ? linha.posicaoAntes : i + 1) + '. ' + linha.nome;
-
-    const ganho = document.createElement('span');
-    ganho.className = 'ganho';
-    if (modo !== 'antes') {
-      const partes = [];
-      if (linha.ganhou > 0) partes.push('+' + linha.ganhou);
-      const salto = linha.posicaoAntes - linha.posicao;
-      if (salto > 0) partes.push('sobe ' + salto);
-      else if (salto < 0) partes.push('cai ' + -salto);
-      ganho.textContent = partes.join('   ');
-    }
-
-    const pontos = document.createElement('span');
-    pontos.className = 'pontos';
-    pontos.textContent = modo === 'antes' ? linha.antes : linha.pontos;
-
-    item.appendChild(nome);
-    item.appendChild(ganho);
-    item.appendChild(pontos);
+    const rotulo = modo === 'antes' ? linha.posicaoAntes : i + 1;
+    const valor = modo === 'antes' ? linha.antes : linha.pontos;
+    const { item, pontos } = linhaPlacar(linha, rotulo, valor, modo);
     elPlacar.appendChild(item);
-
     if (modo === 'anima' && linha.antes !== linha.pontos) contar(pontos, linha.antes, linha.pontos, 800);
   });
 
@@ -124,13 +148,63 @@ function desenharPlacar(lista, modo) {
 
 function animarPlacar(lista) {
   animando = true;
-  desenharPlacar([...lista].sort((a, b) => a.posicaoAntes - b.posicaoAntes), 'antes');
+  const antes = [...lista].sort((a, b) => a.posicaoAntes - b.posicaoAntes).slice(0, 3);
+  desenharPlacar(antes, 'antes');
   setTimeout(() => {
-    desenharPlacar(lista, 'anima');
+    desenharPlacar(lista.slice(0, 3), 'anima');
     setTimeout(() => {
       animando = false;
     }, 900);
   }, 700);
+}
+
+// terceiro, segundo, primeiro, um de cada vez
+function animarPodio(lista) {
+  animando = true;
+  elPlacar.innerHTML = '';
+  const tres = lista.slice(0, 3).reverse();
+  tres.forEach((linha, i) => {
+    setTimeout(() => {
+      const { item } = linhaPlacar(linha, linha.posicao, linha.pontos, 'direto');
+      item.className = 'podio lugar-' + linha.posicao;
+      elPlacar.prepend(item);
+      if (i === tres.length - 1) {
+        setTimeout(() => {
+          animando = false;
+        }, 400);
+      }
+    }, i * 900);
+  });
+}
+
+function desenharAlternativas(e) {
+  const total = (e.distribuicao || []).reduce((soma, n) => soma + n, 0);
+  elAlternativas.innerHTML = '';
+  e.alternativas.forEach((texto, i) => {
+    const item = document.createElement('li');
+    item.className = e.correta === i ? 'alternativa correta' : 'alternativa';
+
+    const rotulo = document.createElement('span');
+    rotulo.textContent = letras[i] + '. ' + texto;
+    item.appendChild(rotulo);
+
+    if (e.distribuicao) {
+      const quantidade = document.createElement('span');
+      quantidade.className = 'quantidade';
+      quantidade.textContent = e.distribuicao[i];
+      item.appendChild(quantidade);
+
+      const barra = document.createElement('span');
+      barra.className = 'barra';
+      const preenchida = document.createElement('span');
+      preenchida.className = 'preenchida';
+      preenchida.style.width = (total ? (e.distribuicao[i] / total) * 100 : 0) + '%';
+      barra.appendChild(preenchida);
+      item.appendChild(barra);
+    }
+
+    elAlternativas.appendChild(item);
+  });
 }
 
 function desenharTemas(e) {
@@ -138,11 +212,69 @@ function desenharTemas(e) {
   e.temas.forEach((tema) => {
     const item = document.createElement('li');
     const botao = document.createElement('button');
+    botao.type = 'button';
     botao.className = tema.arquivo === e.tema ? 'tema escolhido' : 'tema';
     botao.textContent = tema.titulo + ', ' + tema.total + ' perguntas';
     botao.addEventListener('click', () => enviar({ tipo: 'tema', arquivo: tema.arquivo }));
     item.appendChild(botao);
     elTemas.appendChild(item);
+  });
+}
+
+function desenharModos(e) {
+  elModos.querySelectorAll('button').forEach((botao) => {
+    const escolhido =
+      (botao.dataset.modo === 'individual' && e.modo === 'individual') ||
+      (botao.dataset.modo === 'equipes' &&
+        e.modo === 'equipes' &&
+        Number(botao.dataset.quantidade) === e.equipes.length);
+    botao.className = escolhido ? 'tema escolhido' : 'tema';
+  });
+}
+
+function desenharLobby(e) {
+  elTituloLobby.textContent = 'Na sala: ' + e.jogadores.length;
+  elSortear.hidden = e.modo !== 'equipes';
+  elLobby.innerHTML = '';
+  e.jogadores.forEach((jogador) => {
+    const item = document.createElement('li');
+    const nome = document.createElement('span');
+    nome.textContent = jogador.nome;
+    item.appendChild(nome);
+
+    if (e.modo === 'equipes') {
+      const botao = document.createElement('button');
+      botao.type = 'button';
+      botao.className = 'equipe-botao';
+      botao.textContent = jogador.equipe === null ? 'sem equipe' : e.equipes[jogador.equipe];
+      botao.addEventListener('click', () => {
+        // clique passa pra proxima equipe e volta pra sem equipe no fim da volta
+        const proxima = jogador.equipe === null ? 0 : jogador.equipe + 1;
+        enviar({
+          tipo: 'equipe_jogador',
+          id: jogador.id,
+          equipe: proxima >= e.equipes.length ? -1 : proxima
+        });
+      });
+      item.appendChild(botao);
+    }
+
+    elLobby.appendChild(item);
+  });
+}
+
+function desenharEquipes(lista) {
+  elPlacarEquipes.innerHTML = '';
+  lista.forEach((equipe) => {
+    const item = document.createElement('li');
+    const nome = document.createElement('span');
+    nome.textContent = equipe.nome + ', ' + equipe.membros + ' jogadores';
+    const pontos = document.createElement('span');
+    pontos.className = 'pontos';
+    pontos.textContent = equipe.pontos;
+    item.appendChild(nome);
+    item.appendChild(pontos);
+    elPlacarEquipes.appendChild(item);
   });
 }
 
@@ -156,27 +288,36 @@ function desenhar(e) {
   elRodada.hidden = e.estado === 'aguardando' || e.estado === 'fim';
   elSecaoPlacar.hidden = e.estado === 'aguardando' || e.estado === 'pergunta';
 
-  if (e.estado === 'aguardando') desenharTemas(e);
-
-  if (!elRodada.hidden) {
-    elEnunciado.textContent = e.enunciado;
-    elAlternativas.innerHTML = '';
-    e.alternativas.forEach((texto, i) => {
-      const item = document.createElement('li');
-      item.className = e.correta === i ? 'alternativa correta' : 'alternativa';
-      item.textContent = letras[i] + '. ' + texto;
-      elAlternativas.appendChild(item);
-    });
+  if (e.estado === 'aguardando') {
+    desenharTemas(e);
+    desenharModos(e);
+    desenharLobby(e);
   }
 
+  if (!elRodada.hidden) {
+    elDobro.hidden = !e.dobro;
+    elEnunciado.textContent = e.enunciado;
+    desenharAlternativas(e);
+    elRapido.textContent = e.maisRapido ? 'Respondeu certo primeiro: ' + e.maisRapido : '';
+  }
+
+  elPlacarEquipes.hidden = e.modo !== 'equipes' || elSecaoPlacar.hidden;
+  if (!elPlacarEquipes.hidden) desenharEquipes(e.equipesPlacar);
+
   const marca = e.estado + e.numero;
-  if ((e.estado === 'resultado' || e.estado === 'fim') && ultimaAnimacao !== marca) {
+  if (e.estado === 'fim' && ultimaAnimacao !== marca) {
+    ultimaAnimacao = marca;
+    animarPodio(e.placar);
+  } else if (e.estado === 'resultado' && ultimaAnimacao !== marca) {
     ultimaAnimacao = marca;
     animarPlacar(e.placar);
   } else if (!elSecaoPlacar.hidden && !animando) {
-    desenharPlacar(e.placar, 'direto');
+    desenharPlacar(e.placar.slice(0, 3), 'direto');
   }
   if (e.estado === 'aguardando') ultimaAnimacao = '';
+
+  elRelatorio.hidden = !(e.estado === 'fim' && e.relatorio);
+  elRelatorio.href = '/relatorio.csv' + (chave ? '?chave=' + encodeURIComponent(chave) : '');
 
   elContador.textContent = e.respondidas + ' de ' + e.conectados + ' responderam';
   elAvancar.textContent = rotulos[e.estado];

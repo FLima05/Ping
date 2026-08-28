@@ -6,6 +6,7 @@ const elNome = document.getElementById('nome');
 const elEntrar = document.getElementById('entrar');
 const elAviso = document.getElementById('aviso');
 const elAlternativas = document.getElementById('alternativas');
+const elPosicao = document.getElementById('posicao');
 const elPontos = document.getElementById('pontos');
 const elConexao = document.getElementById('conexao');
 
@@ -71,17 +72,13 @@ function desenhar(e) {
   if (e.estado === 'pergunta' && e.escolha === null && e.alternativas.length === 0) {
     elAviso.textContent = 'Entrou no meio da pergunta, aguarde a próxima';
   } else if (e.estado === 'pergunta' && e.escolha === null) {
-    elAviso.textContent = '';
+    elAviso.textContent = e.dobro ? 'Vale o dobro' : '';
     e.alternativas.forEach((texto, i) => {
       const botao = document.createElement('button');
       botao.className = 'resposta';
-      botao.dataset.indice = i;          // útil se precisar
-      // NÃO coloca o texto da resposta — só a cor
-      botao.setAttribute('aria-label', letras[i]);
+      botao.textContent = letras[i] + '. ' + texto;
       botao.addEventListener('click', () => {
-        if (ws && ws.readyState === WebSocket.OPEN) {
-          ws.send(JSON.stringify({ tipo: 'responder', indice: i }));
-        }
+        if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ tipo: 'responder', indice: i }));
       });
       elAlternativas.appendChild(botao);
     });
@@ -91,7 +88,7 @@ function desenhar(e) {
     if (e.escolha === null) {
       elAviso.textContent = 'Sem resposta';
     } else if (e.acertou) {
-      elAviso.textContent = 'Acertou! +' + e.ganhou;
+      elAviso.textContent = 'Acertou, mais ' + e.ganhou;
       elAviso.className = 'certo';
     } else {
       elAviso.textContent = 'Errou';
@@ -103,5 +100,11 @@ function desenhar(e) {
     elAviso.textContent = 'Aguarde o início';
   }
 
-  elPontos.textContent = e.nome + ': ' + e.pontos + ' pts';
+  const partes = [];
+  if (e.total > 0 && e.estado !== 'aguardando') partes.push(e.posicao + ' de ' + e.total);
+  if (e.equipe) partes.push(e.equipe);
+  if (e.sequencia > 1) partes.push('sequência ' + e.sequencia);
+  elPosicao.textContent = partes.join('   ');
+
+  elPontos.textContent = e.nome + ': ' + e.pontos + ' pontos';
 }

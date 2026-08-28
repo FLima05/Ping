@@ -9,6 +9,8 @@ const { WebSocketServer } = require('ws');
 const PORTA = process.env.PORT || 3000;
 const CHAVE = process.env.CHAVE_HOST || '';
 const PASTA_QUIZZES = path.join(__dirname, 'quizzes');
+const PASTA_RELATORIOS = path.join(__dirname, 'relatorios');
+const MULTIPLICADOR_MAXIMO = 2;
 
 // le a pasta uma vez no boot; so arquivo que esta nesse mapa pode ser escolhido depois
 function carregarBancos() {
@@ -44,13 +46,26 @@ function ipLocal() {
   );
 }
 
-// hospedado usa o dominio da requisicao; local troca localhost pelo IP da rede, senao o celular le o proprio localhost
+// hospedado usa o dominio da requisicao; local troca localhost pelo IP da rede
 function urlDeEntrada(req) {
   const host = req.get('host') || '';
   const ehLocal = host.startsWith('localhost') || host.startsWith('127.0.0.1');
   if (!ehLocal) return req.protocol + '://' + host + '/play';
   return 'http://' + ipLocal() + ':' + (host.split(':')[1] || PORTA) + '/play';
 }
+
+// nome do aluno vai pro projetor, entao tira emoji, simbolo solto e espaco repetido
+function limparNome(bruto) {
+  const limpo = String(bruto || '')
+    .normalize('NFC')
+    .replace(/[\p{Extended_Pictographic}\u200D\uFE0F\u20E3]/gu, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 20);
+  return limpo || 'sem nome';
+}
+
+let ultimoRelatorio = null; // { nome, csv }
 
 const app = express();
 app.set('trust proxy', 1); // Render fica atras de proxy, sem isso req.protocol vem http
@@ -75,6 +90,14 @@ app.get('/play', (req, res) => res.sendFile(path.join(__dirname, 'public', 'play
 
 app.get('/entrada.json', (req, res) => res.json({ url: urlDeEntrada(req) }));
 
+app.get('/relatorio.csv', (req, res) => {
+  if (CHAVE && req.query.chave !== CHAVE) return res.status(403).send('chave do host invalida');
+  if (!ultimoRelatorio) return res.status(404).send('nenhuma partida terminada ainda');
+  res.type('text/csv; charset=utf-8');
+  res.setHeader('Content-Disposition', 'attachment; filename="' + ultimoRelatorio.nome + '"');
+  res.send(ultimoRelatorio.csv);
+});
+
 app.get('/qr.svg', async (req, res) => {
   try {
     const svg = await QRCode.toString(urlDeEntrada(req), {
@@ -95,10 +118,12 @@ const servidor = http.createServer(app);
 const wss = new WebSocketServer({ server: servidor });
 
 const hosts = new Set();
-const jogadores = new Map(); // id -> { id, nome, pontos, pontosAntes, escolha, ganhou, entrouEm, ws }
+const jogadores = new Map(); // id -> jogador
 
 const jogo = {
   estado: 'aguardando', // aguardando | pergunta | resultado | fim
+  modo: 'individual', // individual | equipes
+  equipes: [],
   tema: null,
   indice: -1,
   abertaEm: 0
@@ -109,8 +134,8 @@ function banco() {
 }
 
 function perguntas() {
-  const b = banco();
-  return b ? b.perguntas : [];
+  const atual = banco();
+  return atual ? atual.perguntas : [];
 }
 
 function perguntaAtual() {
@@ -126,10 +151,31 @@ function elegiveis() {
   return [...jogadores.values()].filter((j) => online(j) && j.entrouEm < jogo.abertaEm);
 }
 
-// metade do ponto vem por acertar, a outra metade cai conforme o tempo gasto
-function pontuar(pergunta, ms) {
+// base cai com o tempo gasto, sequencia multiplica ate 2x, pergunta marcada como dobro dobra tudo
+function pontuar(pergunta, ms, sequencia) {
   const fracao = Math.min(ms / (pergunta.tempo * 1000), 1);
-  return Math.round(1000 * (1 - fracao / 2));
+  const base = 1000 * (1 - fracao / 2);
+  const multiplicador = Math.min(1 + 0.2 * sequencia, MULTIPLICADOR_MAXIMO);
+  return Math.round(base * multiplicador * (pergunta.dobro ? 2 : 1));
+}
+
+function distribuicao() {
+  const p = perguntaAtual();
+  if (!p) return null;
+  const contagem = p.alternativas.map(() => 0);
+  elegiveis().forEach((j) => {
+    if (j.escolha !== null) contagem[j.escolha] += 1;
+  });
+  return contagem;
+}
+
+function maisRapido() {
+  const p = perguntaAtual();
+  if (!p) return '';
+  const certos = elegiveis()
+    .filter((j) => j.escolha === p.correta)
+    .sort((a, b) => a.respondeuEm - b.respondeuEm);
+  return certos.length ? certos[0].nome : '';
 }
 
 // leva a posicao anterior junto, e o que a tela do host usa pra animar a subida
@@ -149,6 +195,20 @@ function placar() {
     }));
 }
 
+function placarEquipes() {
+  if (jogo.modo !== 'equipes') return [];
+  return jogo.equipes
+    .map((nome, i) => {
+      const membros = [...jogadores.values()].filter((j) => j.equipe === i);
+      return {
+        nome,
+        membros: membros.length,
+        pontos: membros.reduce((soma, j) => soma + j.pontos, 0)
+      };
+    })
+    .sort((a, b) => b.pontos - a.pontos);
+}
+
 function estadoHost() {
   const p = perguntaAtual();
   const naRodada =
@@ -157,6 +217,9 @@ function estadoHost() {
       : [...jogadores.values()].filter(online);
   return {
     estado: jogo.estado,
+    modo: jogo.modo,
+    equipes: jogo.equipes,
+    equipesPlacar: placarEquipes(),
     tema: jogo.tema,
     tituloTema: banco() ? banco().titulo : '',
     temas: [...bancos.entries()].map(([arquivo, b]) => ({
@@ -164,22 +227,35 @@ function estadoHost() {
       titulo: b.titulo,
       total: b.perguntas.length
     })),
+    jogadores: [...jogadores.values()]
+      .filter(online)
+      .map((j) => ({ id: j.id, nome: j.nome, equipe: j.equipe })),
     numero: jogo.indice + 1,
     total: perguntas().length,
     enunciado: p ? p.enunciado : '',
     alternativas: p ? p.alternativas : [],
     correta: jogo.estado === 'resultado' && p ? p.correta : null,
+    dobro: !!(p && p.dobro),
+    distribuicao: jogo.estado === 'resultado' ? distribuicao() : null,
+    maisRapido: jogo.estado === 'resultado' ? maisRapido() : '',
     respondidas: naRodada.filter((j) => j.escolha !== null).length,
     conectados: naRodada.length,
+    relatorio: !!ultimoRelatorio,
     placar: placar()
   };
 }
 
 function estadoJogador(j) {
   const p = perguntaAtual();
+  const ordenados = [...jogadores.values()].sort((a, b) => b.pontos - a.pontos);
   return {
     estado: jogo.estado,
     nome: j.nome,
+    equipe: j.equipe === null ? '' : jogo.equipes[j.equipe] || '',
+    posicao: ordenados.findIndex((x) => x.id === j.id) + 1,
+    total: ordenados.length,
+    sequencia: j.sequencia,
+    dobro: !!(p && p.dobro),
     alternativas: jogo.estado === 'pergunta' && p && j.entrouEm < jogo.abertaEm ? p.alternativas : [],
     escolha: j.escolha,
     acertou: jogo.estado === 'resultado' && p ? j.escolha === p.correta : null,
@@ -200,10 +276,48 @@ function transmitir() {
   });
 }
 
+function gerarRelatorio() {
+  const atual = banco();
+  if (!atual) return;
+  const cabecalho = ['nome', 'equipe', 'pontos', 'acertos', 'total_perguntas', 'maior_sequencia'];
+  atual.perguntas.forEach((p, i) => cabecalho.push('p' + (i + 1)));
+
+  const linhas = [cabecalho.join(';')];
+  [...jogadores.values()]
+    .sort((a, b) => b.pontos - a.pontos)
+    .forEach((j) => {
+      const campos = [
+        j.nome.replace(/;/g, ','),
+        j.equipe === null ? '' : jogo.equipes[j.equipe] || '',
+        j.pontos,
+        j.acertos,
+        atual.perguntas.length,
+        j.melhorSequencia
+      ];
+      atual.perguntas.forEach((p, i) => campos.push(j.respostas[i] || '-'));
+      linhas.push(campos.join(';'));
+    });
+
+  // BOM na frente, senao o Excel abre acento errado
+  const csv = '\uFEFF' + linhas.join('\n') + '\n';
+  const carimbo = new Date().toISOString().slice(0, 16).replace('T', '_').replace(':', 'h');
+  const nome = 'ping_' + carimbo + '_' + String(jogo.tema).replace('.json', '') + '.csv';
+  ultimoRelatorio = { nome, csv };
+
+  try {
+    fs.mkdirSync(PASTA_RELATORIOS, { recursive: true });
+    fs.writeFileSync(path.join(PASTA_RELATORIOS, nome), csv, 'utf8');
+    console.log('relatorio salvo em relatorios/' + nome);
+  } catch (erro) {
+    console.error('nao consegui salvar o relatorio em disco: ' + erro.message);
+  }
+}
+
 function abrirPergunta() {
   jogo.indice += 1;
   if (jogo.indice >= perguntas().length) {
     jogo.estado = 'fim';
+    gerarRelatorio();
     transmitir();
     return;
   }
@@ -211,6 +325,7 @@ function abrirPergunta() {
     j.pontosAntes = j.pontos; // guarda o valor de onde a animacao do placar sai
     j.escolha = null;
     j.ganhou = 0;
+    j.respondeuEm = 0;
   });
   jogo.estado = 'pergunta';
   jogo.abertaEm = Date.now();
@@ -218,6 +333,12 @@ function abrirPergunta() {
 }
 
 function fecharPergunta() {
+  jogadores.forEach((j) => {
+    if (j.escolha === null) {
+      j.sequencia = 0; // ficou sem responder, perde a sequencia
+      if (j.entrouEm < jogo.abertaEm) j.respostas[jogo.indice] = '-';
+    }
+  });
   jogo.estado = 'resultado';
   transmitir();
 }
@@ -231,8 +352,13 @@ function reiniciar() {
   jogadores.forEach((j) => {
     j.pontos = 0;
     j.pontosAntes = 0;
-    j.escolha = null;
     j.ganhou = 0;
+    j.escolha = null;
+    j.respondeuEm = 0;
+    j.sequencia = 0;
+    j.melhorSequencia = 0;
+    j.acertos = 0;
+    j.respostas = [];
     j.entrouEm = Date.now();
   });
   transmitir();
@@ -273,10 +399,54 @@ wss.on('connection', (ws) => {
       return;
     }
 
+    if (msg.tipo === 'modo') {
+      if (!hosts.has(ws) || jogo.estado !== 'aguardando') return;
+      if (msg.modo === 'individual') {
+        jogo.modo = 'individual';
+        jogo.equipes = [];
+        jogadores.forEach((j) => {
+          j.equipe = null;
+        });
+      } else if (msg.modo === 'equipes') {
+        const quantidade = Math.min(Math.max(Number(msg.quantidade) || 2, 2), 4);
+        jogo.modo = 'equipes';
+        jogo.equipes = Array.from({ length: quantidade }, (nada, i) => 'Equipe ' + (i + 1));
+        jogadores.forEach((j) => {
+          if (j.equipe !== null && j.equipe >= quantidade) j.equipe = null;
+        });
+      }
+      transmitir();
+      return;
+    }
+
+    if (msg.tipo === 'sortear') {
+      if (!hosts.has(ws) || jogo.estado !== 'aguardando' || jogo.modo !== 'equipes') return;
+      const lista = [...jogadores.values()].filter(online);
+      for (let i = lista.length - 1; i > 0; i -= 1) {
+        const troca = Math.floor(Math.random() * (i + 1));
+        [lista[i], lista[troca]] = [lista[troca], lista[i]];
+      }
+      lista.forEach((jogador, i) => {
+        jogador.equipe = i % jogo.equipes.length; // reparte parelho, nao aleatorio por sorteio individual
+      });
+      transmitir();
+      return;
+    }
+
+    if (msg.tipo === 'equipe_jogador') {
+      if (!hosts.has(ws) || jogo.estado !== 'aguardando' || jogo.modo !== 'equipes') return;
+      const j = jogadores.get(String(msg.id || ''));
+      if (!j) return;
+      const equipe = Number(msg.equipe);
+      j.equipe = Number.isInteger(equipe) && equipe >= 0 && equipe < jogo.equipes.length ? equipe : null;
+      transmitir();
+      return;
+    }
+
     if (msg.tipo === 'entrar_jogador') {
       const id = String(msg.id || '').slice(0, 40);
       if (!id) return;
-      const nome = String(msg.nome || '').trim().slice(0, 20) || 'sem nome';
+      const nome = limparNome(msg.nome);
       const antigo = jogadores.get(id);
       if (antigo) {
         antigo.ws = ws; // voltou depois de cair, mantem pontos e resposta da rodada
@@ -285,10 +455,16 @@ wss.on('connection', (ws) => {
         jogadores.set(id, {
           id,
           nome,
+          equipe: null,
           pontos: 0,
           pontosAntes: 0,
-          escolha: null,
           ganhou: 0,
+          escolha: null,
+          respondeuEm: 0,
+          sequencia: 0,
+          melhorSequencia: 0,
+          acertos: 0,
+          respostas: [],
           entrouEm: Date.now(),
           ws
         });
@@ -305,9 +481,17 @@ wss.on('connection', (ws) => {
       const i = Number(msg.indice);
       if (!Number.isInteger(i) || i < 0 || i >= p.alternativas.length) return;
       j.escolha = i;
+      j.respondeuEm = Date.now() - jogo.abertaEm;
       if (i === p.correta) {
-        j.ganhou = pontuar(p, Date.now() - jogo.abertaEm);
+        j.ganhou = pontuar(p, j.respondeuEm, j.sequencia);
         j.pontos += j.ganhou;
+        j.sequencia += 1;
+        j.melhorSequencia = Math.max(j.melhorSequencia, j.sequencia);
+        j.acertos += 1;
+        j.respostas[jogo.indice] = 'C';
+      } else {
+        j.sequencia = 0;
+        j.respostas[jogo.indice] = 'X';
       }
       fecharSeTodosResponderam();
       return;
@@ -338,6 +522,7 @@ setInterval(() => {
   });
 }, 30000);
 
+// abre a tela do host sozinho quando o script de atalho e usado
 function abrirNavegador(url) {
   const { exec } = require('child_process');
   const comando =

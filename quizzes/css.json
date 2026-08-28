@@ -39,7 +39,8 @@
       "enunciado": "Qual propriedade define as colunas de um grid?",
       "alternativas": ["grid-columns", "grid-template-columns", "columns-template", "flex-columns"],
       "correta": 1,
-      "tempo": 20
+      "tempo": 20,
+      "dobro": true
     }
   ]
 }

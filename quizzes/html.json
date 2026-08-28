@@ -34,7 +34,8 @@
       "enunciado": "Qual tag semantica marca a navegacao principal da pagina?",
       "alternativas": ["<div class=\"nav\">", "<nav>", "<menu-bar>", "<header-nav>"],
       "correta": 1,
-      "tempo": 20
+      "tempo": 20,
+      "dobro": true
     }
   ]
 }

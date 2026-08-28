@@ -34,7 +34,8 @@
       "enunciado": "Como se declara um vetor de 10 inteiros?",
       "alternativas": ["int v[10];", "int v(10);", "array v[10];", "int v{10};"],
       "correta": 0,
-      "tempo": 20
+      "tempo": 20,
+      "dobro": true
     }
   ]
 }
