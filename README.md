@@ -26,7 +26,7 @@ Na primeira execução o script baixa as dependências. Isso leva cerca de um mi
 ## Como usar (terminal)
 
 ```bash
-git clone https://github.com/ifelix081/ping.git
+git clone https://github.com/i-barbosa/ping.git
 cd ping
 npm install
 npm run host
