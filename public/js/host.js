@@ -16,6 +16,7 @@ const elModos = el('modos');
 const elTituloLobby = el('titulo-lobby');
 const elSortear = el('sortear');
 const elLobby = el('lobby');
+const elQr = el('qr');
 const elUrlPlay = el('url-play');
 const elRodada = el('rodada');
 const elDobro = el('dobro');
@@ -34,15 +35,29 @@ let ws = null;
 let animando = false;
 let ultimaAnimacao = '';
 
-// o servidor sabe o IP da rede, o navegador so conhece localhost
-fetch('/entrada.json')
-  .then((r) => r.json())
-  .then((d) => {
-    elUrlPlay.textContent = d.url;
-  })
-  .catch(() => {
-    elUrlPlay.textContent = location.origin + '/play';
-  });
+/* ===================== ENDERECO DE ENTRADA ===================== */
+
+// com tunel a URL so fica pronta uns segundos depois do boot, entao pergunta de novo
+let urlEntrada = '';
+
+function atualizarEntrada() {
+  fetch('/entrada.json')
+    .then((r) => r.json())
+    .then((d) => {
+      if (!d.url || d.url === urlEntrada) return;
+      urlEntrada = d.url;
+      elUrlPlay.textContent = d.url;
+      elQr.src = '/qr.svg?t=' + Date.now();
+    })
+    .catch(() => {
+      if (!urlEntrada) elUrlPlay.textContent = location.origin + '/play';
+    });
+}
+
+atualizarEntrada();
+setInterval(atualizarEntrada, 5000);
+
+/* ===================== CONEXAO ===================== */
 
 function enviar(dados) {
   if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(dados));
@@ -50,11 +65,20 @@ function enviar(dados) {
 
 function conectar() {
   ws = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host);
+
   ws.addEventListener('open', () => {
     elConexao.textContent = '';
     enviar({ tipo: 'entrar_host', chave: chave });
   });
-  ws.addEventListener('message', (evento) => desenhar(JSON.parse(evento.data)));
+
+  ws.addEventListener('message', (evento) => {
+    try {
+      desenhar(JSON.parse(evento.data));
+    } catch (erro) {
+      console.error(erro);
+    }
+  });
+
   ws.addEventListener('close', () => {
     elConexao.textContent = 'reconectando';
     setTimeout(conectar, 2000);
@@ -63,6 +87,7 @@ function conectar() {
 
 conectar();
 
+// segura a conexao viva e evita o servico dormir por falta de trafego
 setInterval(() => enviar({ tipo: 'ping' }), 25000);
 
 elAvancar.addEventListener('click', () => enviar({ tipo: 'proxima' }));
@@ -76,6 +101,8 @@ elModos.querySelectorAll('button').forEach((botao) => {
     })
   );
 });
+
+/* ===================== PLACAR ===================== */
 
 function contar(elemento, de, ate, ms) {
   const inicio = performance.now();
@@ -178,6 +205,8 @@ function animarPodio(lista) {
   });
 }
 
+/* ===================== TELAS ===================== */
+
 function desenharAlternativas(e) {
   const total = (e.distribuicao || []).reduce((soma, n) => soma + n, 0);
   elAlternativas.className = e.correta !== null ? 'alternativas resultado' : 'alternativas';
@@ -239,6 +268,7 @@ function desenharLobby(e) {
   elTituloLobby.textContent = 'Na sala: ' + e.jogadores.length;
   elSortear.hidden = e.modo !== 'equipes';
   elLobby.innerHTML = '';
+
   e.jogadores.forEach((jogador) => {
     const item = document.createElement('li');
     const nome = document.createElement('span');

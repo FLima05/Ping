@@ -6,15 +6,25 @@ const express = require('express');
 const QRCode = require('qrcode');
 const { WebSocketServer } = require('ws');
 
-const PORTA = process.env.PORT || 3000;
+const PORTA = Number(process.env.PORT) || 3000;
 const CHAVE = process.env.CHAVE_HOST || '';
 const PASTA_QUIZZES = path.join(__dirname, 'quizzes');
 const PASTA_RELATORIOS = path.join(__dirname, 'relatorios');
+
 const MULTIPLICADOR_MAXIMO = 2;
 const LIMITE_MENSAGENS = 25; // por segundo, por conexao
 const JANELA_MS = 1000;
 const TAMANHO_MAXIMO = 2000; // bytes por mensagem
 const LIMITE_JOGADORES = 300;
+
+// nomes de adaptador que nunca servem pro celular alcancar
+const MODO_ONLINE = process.argv.includes('--online');
+let urlPublica = ''; // preenchida quando o tunel sobe
+
+// nomes de adaptador que nunca servem pro celular alcancar
+const ADAPTADOR_IGNORADO = /virtual|vmware|virtualbox|vethernet|hyper-v|wsl|docker|zerotier|tailscale|loopback|bluetooth|utun/i;
+
+/* ===================== TEMAS ===================== */
 
 function validarBanco(dados) {
   const erros = [];
@@ -36,30 +46,18 @@ function validarBanco(dados) {
       erros.push(onde + ': precisa de pelo menos 2 alternativas');
       return;
     }
-    if (p.alternativas.length > 6) {
-      erros.push(onde + ': maximo de 6 alternativas, tem ' + p.alternativas.length);
-    }
-    if (p.alternativas.some((a) => typeof a !== 'string' || !a.trim())) {
-      erros.push(onde + ': tem alternativa vazia');
-    }
+    if (p.alternativas.length > 6) erros.push(onde + ': maximo de 6 alternativas, tem ' + p.alternativas.length);
+    if (p.alternativas.some((a) => typeof a !== 'string' || !a.trim())) erros.push(onde + ': tem alternativa vazia');
     if (!Number.isInteger(p.correta) || p.correta < 0 || p.correta >= p.alternativas.length) {
-      erros.push(
-        onde +
-          ': correta e ' +
-          p.correta +
-          ', mas o valor precisa ser de 0 a ' +
-          (p.alternativas.length - 1)
-      );
+      erros.push(onde + ': correta e ' + p.correta + ', mas precisa ser de 0 a ' + (p.alternativas.length - 1));
     }
-    if (typeof p.tempo !== 'number' || p.tempo <= 0) {
-      erros.push(onde + ': tempo precisa ser um numero maior que zero');
-    }
+    if (typeof p.tempo !== 'number' || p.tempo <= 0) erros.push(onde + ': tempo precisa ser numero maior que zero');
   });
 
   return erros;
 }
 
-// le a pasta uma vez no boot; arquivo com erro e pulado e reportado, nao derruba os outros
+// le a pasta uma vez no boot; arquivo com erro e reportado e pulado, nao derruba os outros
 function carregarBancos() {
   const mapa = new Map();
   let arquivos = [];
@@ -101,28 +99,37 @@ function carregarBancos() {
 
 const bancos = carregarBancos();
 
-// pega o IP da maquina na rede local, ignorando adaptador virtual e link local
-function ipLocal() {
-  if (process.env.IP_LOCAL) return process.env.IP_LOCAL;
+/* ===================== REDE ===================== */
+
+function ipsLocais() {
   const candidatos = [];
   const redes = os.networkInterfaces();
   for (const nome of Object.keys(redes)) {
+    if (ADAPTADOR_IGNORADO.test(nome)) continue;
     for (const info of redes[nome] || []) {
       if (info.family !== 'IPv4' || info.internal) continue;
-      if (info.address.startsWith('172.17.') || info.address.startsWith('169.254.')) continue;
-      candidatos.push(info.address);
+      if (info.address.startsWith('169.254.')) continue; // sem DHCP, nao roteia
+      if (info.address.startsWith('192.168.56.')) continue; // rede so do VirtualBox
+      candidatos.push({ nome, ip: info.address });
     }
   }
-  return (
-    candidatos.find((ip) => ip.startsWith('192.168.')) ||
-    candidatos.find((ip) => ip.startsWith('10.')) ||
-    candidatos[0] ||
-    'localhost'
-  );
+  return candidatos;
+}
+
+function ipLocal() {
+  if (process.env.IP_LOCAL) return process.env.IP_LOCAL;
+  const lista = ipsLocais();
+  const escolhido =
+    lista.find((c) => c.ip.startsWith('192.168.')) ||
+    lista.find((c) => c.ip.startsWith('172.2')) || // roteador do iPhone
+    lista.find((c) => c.ip.startsWith('10.')) ||
+    lista[0];
+  return escolhido ? escolhido.ip : 'localhost';
 }
 
 // hospedado usa o dominio da requisicao; local troca localhost pelo IP da rede
 function urlDeEntrada(req) {
+  if (urlPublica) return urlPublica + '/play'; // tunel no ar, todo mundo entra por ele
   const host = req.get('host') || '';
   const ehLocal = host.startsWith('localhost') || host.startsWith('127.0.0.1');
   if (!ehLocal) return req.protocol + '://' + host + '/play';
@@ -139,6 +146,8 @@ function limparNome(bruto) {
     .slice(0, 20);
   return limpo || 'sem nome';
 }
+
+/* ===================== HTTP ===================== */
 
 let ultimoRelatorio = null; // { nome, csv }
 
@@ -192,6 +201,26 @@ app.get('/qr.svg', async (req, res) => {
 const servidor = http.createServer(app);
 const wss = new WebSocketServer({ server: servidor });
 
+// o ws repassa o erro do http para o WebSocketServer, entao o tratamento precisa estar nos dois
+function tratarErroDeBoot(erro) {
+  if (erro.code === 'EADDRINUSE') {
+    console.error('a porta ' + PORTA + ' ja esta em uso, provavelmente outro Ping aberto');
+    console.error('feche a outra janela, ou rode em outra porta com PORT=3001 npm start');
+    process.exit(1);
+  }
+  if (erro.code === 'EACCES') {
+    console.error('sem permissao para usar a porta ' + PORTA + ', tente outra com PORT=3001 npm start');
+    process.exit(1);
+  }
+  console.error(erro);
+  process.exit(1);
+}
+
+servidor.on('error', tratarErroDeBoot);
+wss.on('error', tratarErroDeBoot);
+
+/* ===================== ESTADO ===================== */
+
 const hosts = new Set();
 const jogadores = new Map(); // id -> jogador
 
@@ -226,7 +255,7 @@ function elegiveis() {
   return [...jogadores.values()].filter((j) => online(j) && j.entrouEm < jogo.abertaEm);
 }
 
-// base cai com o tempo gasto, sequencia multiplica ate 2x, pergunta marcada como dobro dobra tudo
+// base cai com o tempo gasto, sequencia multiplica ate 2x, pergunta de dobro dobra tudo
 function pontuar(pergunta, ms, sequencia) {
   const fracao = Math.min(ms / (pergunta.tempo * 1000), 1);
   const base = 1000 * (1 - fracao / 2);
@@ -275,11 +304,7 @@ function placarEquipes() {
   return jogo.equipes
     .map((nome, i) => {
       const membros = [...jogadores.values()].filter((j) => j.equipe === i);
-      return {
-        nome,
-        membros: membros.length,
-        pontos: membros.reduce((soma, j) => soma + j.pontos, 0)
-      };
+      return { nome, membros: membros.length, pontos: membros.reduce((soma, j) => soma + j.pontos, 0) };
     })
     .sort((a, b) => b.pontos - a.pontos);
 }
@@ -302,9 +327,7 @@ function estadoHost() {
       titulo: b.titulo,
       total: b.perguntas.length
     })),
-    jogadores: [...jogadores.values()]
-      .filter(online)
-      .map((j) => ({ id: j.id, nome: j.nome, equipe: j.equipe })),
+    jogadores: [...jogadores.values()].filter(online).map((j) => ({ id: j.id, nome: j.nome, equipe: j.equipe })),
     numero: jogo.indice + 1,
     total: perguntas().length,
     enunciado: p ? p.enunciado : '',
@@ -351,9 +374,12 @@ function transmitir() {
   });
 }
 
+/* ===================== PARTIDA ===================== */
+
 function gerarRelatorio() {
   const atual = banco();
   if (!atual) return;
+
   const cabecalho = ['nome', 'equipe', 'pontos', 'acertos', 'total_perguntas', 'maior_sequencia'];
   atual.perguntas.forEach((p, i) => cabecalho.push('p' + (i + 1)));
 
@@ -448,6 +474,8 @@ function fecharSeTodosResponderam() {
   }
 }
 
+/* ===================== WEBSOCKET ===================== */
+
 wss.on('connection', (ws) => {
   ws.contador = 0;
   ws.janela = Date.now();
@@ -518,7 +546,7 @@ wss.on('connection', (ws) => {
         [lista[i], lista[troca]] = [lista[troca], lista[i]];
       }
       lista.forEach((jogador, i) => {
-        jogador.equipe = i % jogo.equipes.length; // reparte parelho, nao aleatorio por sorteio individual
+        jogador.equipe = i % jogo.equipes.length; // reparte parelho depois de embaralhar
       });
       transmitir();
       return;
@@ -543,7 +571,7 @@ wss.on('connection', (ws) => {
         antigo.ws = ws; // voltou depois de cair, mantem pontos e resposta da rodada
         antigo.nome = nome;
       } else {
-        if (jogadores.size >= LIMITE_JOGADORES) return; // sala cheia, ignora entrada nova
+        if (jogadores.size >= LIMITE_JOGADORES) return; // sala cheia
         jogadores.set(id, {
           id,
           nome,
@@ -614,28 +642,85 @@ setInterval(() => {
   });
 }, 30000);
 
+/* ===================== BOOT ===================== */
+
+// sobe um tunel do Cloudflare e devolve a url publica, com https e WebSocket funcionando
+async function abrirTunel() {
+  const { Tunnel, bin, install } = require('cloudflared');
+      const prazo = setTimeout(() => reject(new Error('o tunel demorou demais para responder')), 60000);
+
+  if (!fs.existsSync(bin)) {
+    console.log('baixando o cloudflared, so na primeira vez...');
+    await install(bin);
+  }
+
+  const tunel = Tunnel.quick('http://localhost:' + PORTA);
+
+  const endereco = await new Promise((resolve, reject) => {
+    const prazo = setTimeout(() => reject(new Error('o tunel demorou demais para responder')), 30000);
+    tunel.once('url', (u) => {
+      clearTimeout(prazo);
+      resolve(u);
+    });
+  });
+
+  await new Promise((resolve) => tunel.once('connected', resolve));
+
+  tunel.on('exit', (codigo) => {
+    console.log('tunel encerrado, codigo ' + codigo);
+    urlPublica = '';
+  });
+
+  process.on('SIGINT', () => {
+    tunel.stop();
+    process.exit(0);
+  });
+
+  return endereco;
+}
+
 // abre a tela do host sozinho quando o script de atalho e usado
 function abrirNavegador(url) {
   const { exec } = require('child_process');
-  const comando =
-    process.platform === 'win32' ? 'start ""' : process.platform === 'darwin' ? 'open' : 'xdg-open';
+  const comando = process.platform === 'win32' ? 'start ""' : process.platform === 'darwin' ? 'open' : 'xdg-open';
   exec(comando + ' "' + url + '"', (erro) => {
     if (erro) console.log('abra manualmente: ' + url);
   });
 }
 
-servidor.listen(PORTA, async () => {
-  const url = 'http://' + ipLocal() + ':' + PORTA + '/play';
+servidor.listen(PORTA, '0.0.0.0', async () => {
+  const redes = ipsLocais();
+
+  if (MODO_ONLINE) {
+    console.log('abrindo o tunel, isso leva alguns segundos...');
+    try {
+      urlPublica = await abrirTunel();
+    } catch (erro) {
+      console.error('nao consegui abrir o tunel: ' + erro.message);
+      console.error('sem internet, ou o cloudflared foi bloqueado. Rodando so na rede local.');
+    }
+  } else if (redes.length === 0) {
+    console.log('nenhuma rede local encontrada, conecte o computador ao Wi-Fi');
+  } else if (redes.length > 1) {
+    console.log('IPs encontrados: ' + redes.map((c) => c.nome + '=' + c.ip).join('   '));
+    console.log('QR apontando pro lugar errado? rode com IP_LOCAL=o_ip_certo npm start');
+  }
+
+  const url = urlPublica ? urlPublica + '/play' : 'http://' + ipLocal() + ':' + PORTA + '/play';
+
+  console.log('');
   console.log('host:   http://localhost:' + PORTA + '/host');
   console.log('player: ' + url);
+  if (urlPublica) console.log('link publico, qualquer rede entra. Encerre com Ctrl+C ao terminar a aula.');
+
   try {
     console.log(await QRCode.toString(url, { type: 'terminal', small: true }));
   } catch (erro) {
     console.error(erro);
   }
+
   if (process.argv.includes('--abrir')) {
-    const destino =
-      'http://localhost:' + PORTA + '/host' + (CHAVE ? '?chave=' + encodeURIComponent(CHAVE) : '');
+    const destino = 'http://localhost:' + PORTA + '/host' + (CHAVE ? '?chave=' + encodeURIComponent(CHAVE) : '');
     setTimeout(() => abrirNavegador(destino), 800);
   }
 });
