@@ -3,12 +3,13 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <meta name="theme-color" content="#151a1f" />
+    <meta name="theme-color" content="#0d0d0d" />
     <title>Ping</title>
     <link rel="stylesheet" href="/css/play.css" />
   </head>
   <body>
     <section id="entrada">
+      <p id="marca">Ping</p>
       <h1>Seu nome</h1>
       <input
         id="nome"
@@ -25,9 +26,11 @@
     <section id="jogo" hidden>
       <p id="aviso">Aguarde o início</p>
       <div id="alternativas" class="botoes"></div>
-      <p id="posicao"></p>
-      <p id="pontos"></p>
-      <p id="conexao"></p>
+      <footer id="rodape">
+        <span id="posicao"></span>
+        <span id="pontos"></span>
+        <span id="conexao"></span>
+      </footer>
     </section>
 
     <script src="/js/play.js"></script>

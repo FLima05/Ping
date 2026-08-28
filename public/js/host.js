@@ -8,6 +8,7 @@ const rotulos = {
 
 const el = (id) => document.getElementById(id);
 const elNumero = el('numero');
+const elContagem = el('contagem');
 const elConexao = el('conexao');
 const elAbertura = el('abertura');
 const elTemas = el('temas');
@@ -179,7 +180,9 @@ function animarPodio(lista) {
 
 function desenharAlternativas(e) {
   const total = (e.distribuicao || []).reduce((soma, n) => soma + n, 0);
+  elAlternativas.className = e.correta !== null ? 'alternativas resultado' : 'alternativas';
   elAlternativas.innerHTML = '';
+
   e.alternativas.forEach((texto, i) => {
     const item = document.createElement('li');
     item.className = e.correta === i ? 'alternativa correta' : 'alternativa';
@@ -194,13 +197,13 @@ function desenharAlternativas(e) {
       quantidade.textContent = e.distribuicao[i];
       item.appendChild(quantidade);
 
-      const barra = document.createElement('span');
-      barra.className = 'barra';
-      const preenchida = document.createElement('span');
-      preenchida.className = 'preenchida';
-      preenchida.style.width = (total ? (e.distribuicao[i] / total) * 100 : 0) + '%';
-      barra.appendChild(preenchida);
-      item.appendChild(barra);
+      const medidor = document.createElement('span');
+      medidor.className = 'medidor';
+      const preenchido = document.createElement('span');
+      preenchido.className = 'medidor-preenchido';
+      preenchido.style.width = (total ? (e.distribuicao[i] / total) * 100 : 0) + '%';
+      medidor.appendChild(preenchido);
+      item.appendChild(medidor);
     }
 
     elAlternativas.appendChild(item);
@@ -283,6 +286,8 @@ function desenhar(e) {
   else if (e.estado === 'resultado') elNumero.textContent = e.tituloTema + ', resultado ' + e.numero + ' de ' + e.total;
   else if (e.estado === 'fim') elNumero.textContent = 'Fim da partida, ' + e.tituloTema;
   else elNumero.textContent = 'Sala aberta';
+
+  elContagem.textContent = e.conectados + ' na sala';
 
   elAbertura.hidden = e.estado !== 'aguardando';
   elRodada.hidden = e.estado === 'aguardando' || e.estado === 'fim';

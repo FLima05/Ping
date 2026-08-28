@@ -1,14 +1,20 @@
 const letras = ['A', 'B', 'C', 'D', 'E', 'F'];
 
-const elEntrada = document.getElementById('entrada');
-const elJogo = document.getElementById('jogo');
-const elNome = document.getElementById('nome');
-const elEntrar = document.getElementById('entrar');
-const elAviso = document.getElementById('aviso');
-const elAlternativas = document.getElementById('alternativas');
-const elPosicao = document.getElementById('posicao');
-const elPontos = document.getElementById('pontos');
-const elConexao = document.getElementById('conexao');
+const el = (id) => document.getElementById(id);
+const elEntrada = el('entrada');
+const elJogo = el('jogo');
+const elNome = el('nome');
+const elEntrar = el('entrar');
+const elAviso = el('aviso');
+const elAlternativas = el('alternativas');
+const elPosicao = el('posicao');
+const elPontos = el('pontos');
+const elConexao = el('conexao');
+
+// escreve so se o elemento existir, assim html velho nao derruba a tela inteira
+function texto(elemento, valor) {
+  if (elemento) elemento.textContent = valor;
+}
 
 // id fixo do aparelho, e o que devolve os pontos se a conexao cair
 let id = sessionStorage.getItem('ping_id');
@@ -33,13 +39,25 @@ function entrar() {
 
 function conectar() {
   ws = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host);
+
   ws.addEventListener('open', () => {
-    elConexao.textContent = '';
+    texto(elConexao, '');
     entrar();
   });
-  ws.addEventListener('message', (evento) => desenhar(JSON.parse(evento.data)));
+
+  ws.addEventListener('message', (evento) => {
+    try {
+      desenhar(JSON.parse(evento.data));
+    } catch (erro) {
+      console.error(erro);
+      texto(elConexao, 'erro ao desenhar a tela');
+    }
+  });
+
+  ws.addEventListener('error', () => texto(elConexao, 'sem conexao com o servidor'));
+
   ws.addEventListener('close', () => {
-    elConexao.textContent = 'reconectando';
+    texto(elConexao, 'reconectando');
     setTimeout(conectar, 2000);
   });
 }
@@ -55,7 +73,7 @@ document.addEventListener('visibilitychange', () => {
   if (!document.hidden && ws && ws.readyState === WebSocket.CLOSED) conectar();
 });
 
-elEntrar.addEventListener('click', () => {
+function confirmarNome() {
   const digitado = elNome.value.trim();
   if (!digitado) return;
   nome = digitado;
@@ -63,6 +81,11 @@ elEntrar.addEventListener('click', () => {
   elEntrada.hidden = true;
   elJogo.hidden = false;
   entrar();
+}
+
+elEntrar.addEventListener('click', confirmarNome);
+elNome.addEventListener('keydown', (evento) => {
+  if (evento.key === 'Enter') confirmarNome();
 });
 
 function desenhar(e) {
@@ -70,41 +93,41 @@ function desenhar(e) {
   elAviso.className = '';
 
   if (e.estado === 'pergunta' && e.escolha === null && e.alternativas.length === 0) {
-    elAviso.textContent = 'Entrou no meio da pergunta, aguarde a próxima';
+    texto(elAviso, 'Entrou no meio da pergunta, aguarde a próxima');
   } else if (e.estado === 'pergunta' && e.escolha === null) {
-    elAviso.textContent = e.dobro ? 'Vale o dobro' : '';
-    e.alternativas.forEach((texto, i) => {
+    texto(elAviso, e.dobro ? 'Vale o dobro' : 'Escolha');
+    e.alternativas.forEach((opcao, i) => {
       const botao = document.createElement('button');
+      botao.type = 'button';
       botao.className = 'resposta';
-      botao.textContent = letras[i] + '. ' + texto;
+      botao.textContent = letras[i] + '. ' + opcao;
       botao.addEventListener('click', () => {
         if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ tipo: 'responder', indice: i }));
       });
       elAlternativas.appendChild(botao);
     });
   } else if (e.estado === 'pergunta') {
-    elAviso.textContent = 'Resposta enviada: ' + letras[e.escolha];
+    texto(elAviso, 'Resposta enviada: ' + letras[e.escolha]);
   } else if (e.estado === 'resultado') {
     if (e.escolha === null) {
-      elAviso.textContent = 'Sem resposta';
+      texto(elAviso, 'Sem resposta');
     } else if (e.acertou) {
-      elAviso.textContent = 'Acertou, mais ' + e.ganhou;
+      texto(elAviso, 'Acertou, mais ' + e.ganhou);
       elAviso.className = 'certo';
     } else {
-      elAviso.textContent = 'Errou';
+      texto(elAviso, 'Errou');
       elAviso.className = 'errado';
     }
   } else if (e.estado === 'fim') {
-    elAviso.textContent = 'Fim da partida';
+    texto(elAviso, 'Fim da partida');
   } else {
-    elAviso.textContent = 'Aguarde o início';
+    texto(elAviso, 'Aguarde o início');
   }
 
   const partes = [];
   if (e.total > 0 && e.estado !== 'aguardando') partes.push(e.posicao + ' de ' + e.total);
   if (e.equipe) partes.push(e.equipe);
   if (e.sequencia > 1) partes.push('sequência ' + e.sequencia);
-  elPosicao.textContent = partes.join('   ');
-
-  elPontos.textContent = e.nome + ': ' + e.pontos + ' pontos';
+  texto(elPosicao, partes.join('   '));
+  texto(elPontos, e.nome + ': ' + e.pontos + ' pontos');
 }

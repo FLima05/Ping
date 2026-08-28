@@ -9,7 +9,10 @@
   <body>
     <header class="barra">
       <span id="numero">Sala aberta</span>
-      <span id="conexao"></span>
+      <span class="direita">
+        <span id="contagem">0 na sala</span>
+        <span id="conexao"></span>
+      </span>
     </header>
 
     <main id="palco">
@@ -18,6 +21,8 @@
           <img id="qr" src="/qr.svg" alt="QR code para entrar na partida" />
           <p id="url-play"></p>
         </div>
+
+        <p id="marca">Ping</p>
 
         <div id="config">
           <h2>Tema</h2>
@@ -30,7 +35,9 @@
             <button type="button" class="tema" data-modo="equipes" data-quantidade="3">3 equipes</button>
             <button type="button" class="tema" data-modo="equipes" data-quantidade="4">4 equipes</button>
           </div>
+        </div>
 
+        <div id="sala">
           <h2 id="titulo-lobby">Na sala: 0</h2>
           <button type="button" id="sortear" class="tema" hidden>Sortear equipes</button>
           <ul id="lobby" class="lobby"></ul>
@@ -38,7 +45,7 @@
       </section>
 
       <section id="rodada" hidden>
-        <p id="dobro" hidden>Esta pergunta vale o dobro</p>
+        <p id="dobro" hidden>Vale o dobro</p>
         <h1 id="enunciado"></h1>
         <ol id="alternativas" class="alternativas"></ol>
         <p id="rapido"></p>
