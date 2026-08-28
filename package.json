@@ -7,7 +7,8 @@
     "node": ">=20"
   },
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "host": "node server.js --abrir"
   },
   "dependencies": {
     "express": "^4.19.2",

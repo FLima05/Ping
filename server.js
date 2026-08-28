@@ -1,4 +1,5 @@
 const fs = require('fs');
+const os = require('os');
 const http = require('http');
 const path = require('path');
 const express = require('express');
@@ -9,34 +10,52 @@ const PORTA = process.env.PORT || 3000;
 const CHAVE = process.env.CHAVE_HOST || '';
 const PASTA_QUIZZES = path.join(__dirname, 'quizzes');
 
-// Lê a pasta de quizzes no boot e valida os temas
+// le a pasta uma vez no boot; so arquivo que esta nesse mapa pode ser escolhido depois
 function carregarBancos() {
   const mapa = new Map();
-  if (!fs.existsSync(PASTA_QUIZZES)) {
-    fs.mkdirSync(PASTA_QUIZZES, { recursive: true });
-  }
-  
   for (const arquivo of fs.readdirSync(PASTA_QUIZZES)) {
     if (!arquivo.endsWith('.json')) continue;
-    try {
-      const caminhoArquivo = path.join(PASTA_QUIZZES, arquivo);
-      const conteudo = fs.readFileSync(caminhoArquivo, 'utf8');
-      const dados = JSON.parse(conteudo);
-      
-      if (!Array.isArray(dados.perguntas) || dados.perguntas.length === 0) continue;
-      mapa.set(arquivo, { titulo: dados.titulo || arquivo, perguntas: dados.perguntas });
-    } catch (e) {
-      console.error(`Erro ao ler o arquivo de quiz ${arquivo}:`, e);
-    }
+    const dados = JSON.parse(fs.readFileSync(path.join(PASTA_QUIZZES, arquivo), 'utf8'));
+    if (!Array.isArray(dados.perguntas) || dados.perguntas.length === 0) continue;
+    mapa.set(arquivo, { titulo: dados.titulo || arquivo, perguntas: dados.perguntas });
   }
   return mapa;
 }
 
 const bancos = carregarBancos();
 
-const app = express();
-app.set('trust proxy', 1);
+// pega o IP da maquina na rede local, ignorando adaptador virtual e link local
+function ipLocal() {
+  if (process.env.IP_LOCAL) return process.env.IP_LOCAL;
+  const candidatos = [];
+  const redes = os.networkInterfaces();
+  for (const nome of Object.keys(redes)) {
+    for (const info of redes[nome] || []) {
+      if (info.family !== 'IPv4' || info.internal) continue;
+      if (info.address.startsWith('172.17.') || info.address.startsWith('169.254.')) continue;
+      candidatos.push(info.address);
+    }
+  }
+  return (
+    candidatos.find((ip) => ip.startsWith('192.168.')) ||
+    candidatos.find((ip) => ip.startsWith('10.')) ||
+    candidatos[0] ||
+    'localhost'
+  );
+}
 
+// hospedado usa o dominio da requisicao; local troca localhost pelo IP da rede, senao o celular le o proprio localhost
+function urlDeEntrada(req) {
+  const host = req.get('host') || '';
+  const ehLocal = host.startsWith('localhost') || host.startsWith('127.0.0.1');
+  if (!ehLocal) return req.protocol + '://' + host + '/play';
+  return 'http://' + ipLocal() + ':' + (host.split(':')[1] || PORTA) + '/play';
+}
+
+const app = express();
+app.set('trust proxy', 1); // Render fica atras de proxy, sem isso req.protocol vem http
+
+// sem no-cache o celular fica com a tela da versao anterior depois do deploy
 app.use(
   express.static(path.join(__dirname, 'public'), {
     etag: true,
@@ -54,10 +73,11 @@ app.get('/host', (req, res) => {
 
 app.get('/play', (req, res) => res.sendFile(path.join(__dirname, 'public', 'play.html')));
 
+app.get('/entrada.json', (req, res) => res.json({ url: urlDeEntrada(req) }));
+
 app.get('/qr.svg', async (req, res) => {
-  const url = req.protocol + '://' + req.get('host') + '/play';
   try {
-    const svg = await QRCode.toString(url, {
+    const svg = await QRCode.toString(urlDeEntrada(req), {
       type: 'svg',
       margin: 1,
       color: { dark: '#151a1f', light: '#f2eee6' }
@@ -101,19 +121,18 @@ function online(j) {
   return j.ws && j.ws.readyState === j.ws.OPEN;
 }
 
-// Jogadores elegíveis para pontuar e responder na rodada atual
+// so conta quem esta conectado agora e ja estava dentro quando a pergunta abriu
 function elegiveis() {
-  return [...jogadores.values()].filter((j) => online(j) && j.entrouEm <= jogo.abertaEm);
+  return [...jogadores.values()].filter((j) => online(j) && j.entrouEm < jogo.abertaEm);
 }
 
-// Cálculo de pontuação baseado no tempo
+// metade do ponto vem por acertar, a outra metade cai conforme o tempo gasto
 function pontuar(pergunta, ms) {
-  const tempoLimiteMs = (pergunta.tempo || 30) * 1000;
-  const fracao = Math.min(ms / tempoLimiteMs, 1);
+  const fracao = Math.min(ms / (pergunta.tempo * 1000), 1);
   return Math.round(1000 * (1 - fracao / 2));
 }
 
-// Placar ordenado com posições anteriores para animações
+// leva a posicao anterior junto, e o que a tela do host usa pra animar a subida
 function placar() {
   const lista = [...jogadores.values()];
   const ordemAntes = [...lista].sort((a, b) => b.pontosAntes - a.pontosAntes).map((j) => j.id);
@@ -158,11 +177,10 @@ function estadoHost() {
 
 function estadoJogador(j) {
   const p = perguntaAtual();
-  const estaApto = jogo.estado === 'pergunta' && p && j.entrouEm <= jogo.abertaEm;
   return {
     estado: jogo.estado,
     nome: j.nome,
-    alternativas: estaApto ? p.alternativas : [],
+    alternativas: jogo.estado === 'pergunta' && p && j.entrouEm < jogo.abertaEm ? p.alternativas : [],
     escolha: j.escolha,
     acertou: jogo.estado === 'resultado' && p ? j.escolha === p.correta : null,
     ganhou: j.ganhou,
@@ -190,7 +208,7 @@ function abrirPergunta() {
     return;
   }
   jogadores.forEach((j) => {
-    j.pontosAntes = j.pontos;
+    j.pontosAntes = j.pontos; // guarda o valor de onde a animacao do placar sai
     j.escolha = null;
     j.ganhou = 0;
   });
@@ -204,6 +222,7 @@ function fecharPergunta() {
   transmitir();
 }
 
+// volta pro comeco sem reiniciar o servico, e libera trocar de tema
 function reiniciar() {
   jogo.estado = 'aguardando';
   jogo.tema = null;
@@ -237,7 +256,7 @@ wss.on('connection', (ws) => {
       return;
     }
 
-    if (msg.tipo === 'ping') return;
+    if (msg.tipo === 'ping') return; // so segura a conexao e o servico acordado
 
     if (msg.tipo === 'entrar_host') {
       if (CHAVE && msg.chave !== CHAVE) return;
@@ -259,9 +278,8 @@ wss.on('connection', (ws) => {
       if (!id) return;
       const nome = String(msg.nome || '').trim().slice(0, 20) || 'sem nome';
       const antigo = jogadores.get(id);
-      
       if (antigo) {
-        antigo.ws = ws;
+        antigo.ws = ws; // voltou depois de cair, mantem pontos e resposta da rodada
         antigo.nome = nome;
       } else {
         jogadores.set(id, {
@@ -308,18 +326,39 @@ wss.on('connection', (ws) => {
     hosts.delete(ws);
     const j = jogadores.get(ws.idJogador);
     if (!j) return;
-    if (j.ws === ws) j.ws = null;
+    if (j.ws === ws) j.ws = null; // guarda os pontos ate ele voltar
     fecharSeTodosResponderam();
   });
 });
 
+// proxy corta conexao parada, entao manda quadro de ping de tempos em tempos
 setInterval(() => {
   wss.clients.forEach((ws) => {
     if (ws.readyState === ws.OPEN) ws.ping();
   });
 }, 30000);
 
-servidor.listen(PORTA, () => {
+function abrirNavegador(url) {
+  const { exec } = require('child_process');
+  const comando =
+    process.platform === 'win32' ? 'start ""' : process.platform === 'darwin' ? 'open' : 'xdg-open';
+  exec(comando + ' "' + url + '"', (erro) => {
+    if (erro) console.log('abra manualmente: ' + url);
+  });
+}
+
+servidor.listen(PORTA, async () => {
+  const url = 'http://' + ipLocal() + ':' + PORTA + '/play';
   console.log('host:   http://localhost:' + PORTA + '/host');
-  console.log('player: http://localhost:' + PORTA + '/play');
+  console.log('player: ' + url);
+  try {
+    console.log(await QRCode.toString(url, { type: 'terminal', small: true }));
+  } catch (erro) {
+    console.error(erro);
+  }
+  if (process.argv.includes('--abrir')) {
+    const destino =
+      'http://localhost:' + PORTA + '/host' + (CHAVE ? '?chave=' + encodeURIComponent(CHAVE) : '');
+    setTimeout(() => abrirNavegador(destino), 800);
+  }
 });
