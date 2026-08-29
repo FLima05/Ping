@@ -5,28 +5,38 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="theme-color" content="#0d0d0d" />
     <title>Ping</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700;800;900&family=Manrope:wght@500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
     <link rel="stylesheet" href="/css/play.css" />
   </head>
   <body>
     <section id="entrada">
-      <p id="marca">Ping</p>
-      <h1>Seu nome</h1>
-      <input
-        id="nome"
-        maxlength="20"
-        autocomplete="off"
-        autocorrect="off"
-        autocapitalize="words"
-        spellcheck="false"
-        enterkeyhint="go"
-      />
-      <button id="entrar" class="botao">Entrar</button>
+      <div class="entrada-card">
+        <p id="marca" class="logo">Ping</p>
+        <p class="subtitulo">Digite seu nome pra entrar na sala</p>
+        <label for="nome" class="rotulo-nome">Seu nome</label>
+        <input
+          id="nome"
+          maxlength="20"
+          autocomplete="off"
+          autocorrect="off"
+          autocapitalize="words"
+          spellcheck="false"
+          enterkeyhint="go"
+          placeholder="Ex: Ana"
+        />
+        <button id="entrar" class="botao">Entrar</button>
+      </div>
     </section>
 
     <section id="jogo" hidden>
       <p id="aviso">Aguarde o início</p>
       <div id="alternativas" class="botoes"></div>
-      <footer id="rodape">
+      <footer id="rodape" class="rodape-jogo">
         <span id="posicao"></span>
         <span id="pontos"></span>
         <span id="conexao"></span>

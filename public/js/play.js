@@ -100,6 +100,7 @@ function desenhar(e) {
       const botao = document.createElement('button');
       botao.type = 'button';
       botao.className = 'resposta';
+      botao.dataset.letra = letras[i];
       botao.textContent = letras[i] + '. ' + opcao;
       botao.addEventListener('click', () => {
         if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ tipo: 'responder', indice: i }));

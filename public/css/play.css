@@ -1,9 +1,9 @@
 :root {
-  --fundo: #0d0d0d;
-  --superficie: #1a1a1a;
-  --borda: #2e2e2e;
+  --fundo: #0b0b0d;
+  --superficie: #1a1a1f;
+  --borda: #2e2e35;
   --texto: #ffffff;
-  --apagado: #999;
+  --apagado: #9aa0a6;
 
   --vermelho: #e21b3c;
   --azul: #1368ce;
@@ -13,7 +13,10 @@
 
   --certo: #2ecc71;
   --errado: #e74c3c;
+  --acento: #f1c40f;
   --radius: 20px;
+  --fonte: "Poppins", "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
+  --ease: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 *,
@@ -33,9 +36,12 @@ html {
 }
 
 body {
-  background: var(--fundo);
+  background:
+    radial-gradient(900px 560px at 20% -10%, rgba(19, 104, 206, 0.18), transparent 60%),
+    radial-gradient(700px 460px at 100% 110%, rgba(226, 27, 60, 0.14), transparent 55%),
+    var(--fundo);
   color: var(--texto);
-  font-family: "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
+  font-family: var(--fonte);
   display: flex;
   flex-direction: column;
   min-height: 100dvh;
@@ -60,15 +66,27 @@ body {
   max-width: 360px;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 14px;
   text-align: center;
+  animation: surgir 320ms var(--ease);
+}
+
+@keyframes surgir {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .logo {
-  font-size: 48px;
+  font-size: 52px;
   font-weight: 900;
   letter-spacing: -2px;
-  background: linear-gradient(135deg, #e21b3c, #1368ce, #d89e00, #26890c);
+  background: linear-gradient(90deg, var(--vermelho), var(--amarelo) 33%, var(--azul) 66%, var(--roxo));
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
@@ -78,6 +96,16 @@ body {
   font-size: 15px;
   color: var(--apagado);
   font-weight: 500;
+  margin-bottom: 8px;
+}
+
+.rotulo-nome {
+  font-size: 13px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: var(--apagado);
+  text-align: left;
 }
 
 #nome {
@@ -87,15 +115,16 @@ body {
   padding: 16px 18px;
   background: var(--superficie);
   color: var(--texto);
-  border: 3px solid #333;
+  border: 2px solid var(--borda);
   border-radius: var(--radius);
   font-family: inherit;
   outline: none;
   text-align: center;
+  transition: border-color 0.15s var(--ease), box-shadow 0.15s var(--ease);
 }
 
 #nome:focus {
-  border-color: #1368ce;
+  border-color: var(--azul);
   box-shadow: 0 0 0 4px rgba(19, 104, 206, 0.25);
 }
 
@@ -118,6 +147,8 @@ body {
   touch-action: manipulation;
   -webkit-user-select: none;
   user-select: none;
+  transition: transform 0.1s var(--ease);
+  margin-top: 6px;
 }
 
 .botao:active {
@@ -144,9 +175,11 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
+  gap: 8px;
   background: var(--superficie);
-  border: 3px solid #2a2a2a;
+  border: 2px solid var(--borda);
   flex-shrink: 0;
+  transition: background 0.15s var(--ease), border-color 0.15s var(--ease);
 }
 
 #aviso.certo {
@@ -155,13 +188,21 @@ body {
   color: #111;
 }
 
+#aviso.certo::before {
+  content: "✓";
+}
+
 #aviso.errado {
   background: var(--errado);
   border-color: #c0392b;
   color: #fff;
 }
 
-/* ===== BOTÕES SÓ DE COR (estilo Kahoot) ===== */
+#aviso.errado::before {
+  content: "✗";
+}
+
+/* ===== BOTOES SO DE COR (estilo Kahoot) ===== */
 .botoes {
   flex: 1;
   display: grid;
@@ -172,6 +213,7 @@ body {
 }
 
 .resposta {
+  position: relative;
   width: 100%;
   height: 100%;
   min-height: 0;
@@ -182,18 +224,84 @@ body {
   -webkit-user-select: none;
   user-select: none;
   box-shadow: 0 6px 0 rgba(0, 0, 0, 0.4);
-  transition: transform 0.08s, box-shadow 0.08s;
-  /* sem texto */
+  transition: transform 0.08s var(--ease), box-shadow 0.08s var(--ease);
+  /* sem texto, so cor + forma + letra */
   font-size: 0;
   color: transparent;
+  overflow: hidden;
 }
 
-.resposta:nth-child(1) { background: var(--vermelho); }
-.resposta:nth-child(2) { background: var(--azul); }
-.resposta:nth-child(3) { background: var(--amarelo); }
-.resposta:nth-child(4) { background: var(--verde); }
-.resposta:nth-child(5) { background: var(--roxo); }
-.resposta:nth-child(6) { background: #e67e22; }
+.resposta:nth-child(1) {
+  background: linear-gradient(135deg, var(--vermelho), #c11534);
+}
+.resposta:nth-child(2) {
+  background: linear-gradient(135deg, var(--azul), #0d4f9e);
+}
+.resposta:nth-child(3) {
+  background: linear-gradient(135deg, var(--amarelo), #c28c00);
+}
+.resposta:nth-child(4) {
+  background: linear-gradient(135deg, var(--verde), #1f6f0a);
+}
+.resposta:nth-child(5) {
+  background: linear-gradient(135deg, var(--roxo), #6a2fa0);
+}
+.resposta:nth-child(6) {
+  background: linear-gradient(135deg, #e67e22, #c8660f);
+}
+
+/* selo com a letra no canto, unica coisa legivel do botao */
+.resposta::before {
+  content: attr(data-letra);
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.28);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 15px;
+  font-weight: 900;
+  color: #fff;
+}
+
+/* forma central, so pra diferenciar sem depender so da cor */
+.resposta::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: 34%;
+  height: 34%;
+  background: rgba(255, 255, 255, 0.9);
+}
+
+.resposta:nth-child(1)::after {
+  clip-path: polygon(50% 6%, 94% 94%, 6% 94%);
+}
+
+.resposta:nth-child(2)::after {
+  border-radius: 999px;
+}
+
+.resposta:nth-child(3)::after {
+  clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
+}
+
+.resposta:nth-child(4)::after {
+  border-radius: 6px;
+}
+
+.resposta:nth-child(5)::after {
+  clip-path: polygon(20% 0%, 80% 0%, 100% 100%, 0% 100%);
+}
+
+.resposta:nth-child(6)::after {
+  clip-path: polygon(50% 0%, 100% 38%, 82% 100%, 18% 100%, 0% 38%);
+}
 
 .resposta:active {
   transform: translateY(5px);
@@ -204,11 +312,26 @@ body {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 10px;
   font-size: 14px;
-  font-weight: 600;
+  font-weight: 700;
   color: var(--apagado);
   flex-shrink: 0;
   padding-top: 4px;
+}
+
+#posicao {
+  font-weight: 800;
+  color: var(--acento);
+}
+
+#pontos {
+  font-variant-numeric: tabular-nums;
+}
+
+#conexao:not(:empty) {
+  color: var(--vermelho);
+  font-weight: 800;
 }
 
 /* ===== TELAS BAIXAS ===== */
@@ -245,8 +368,11 @@ body {
   }
 }
 
-#posicao {
-  font-size: 20px;
-  font-weight: bold;
-  color: var(--acento);
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+  }
 }
