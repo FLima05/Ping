@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: ping
+    runtime: node
+    plan: free
+    # --omit=optional pula o cloudflared, que so serve pro modo local com tunel
+    buildCommand: npm install --omit=optional
+    startCommand: npm start
+    envVars:
+      - key: CHAVE_HOST
+        generateValue: true
+      - key: NODE_VERSION
+        value: "20"

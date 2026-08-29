@@ -28,5 +28,5 @@ if not exist "node_modules" (
 echo.
 echo Ping iniciando. Para encerrar, feche esta janela.
 echo.
-call npm run host
+call npm run online
 pause

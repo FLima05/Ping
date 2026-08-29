@@ -18,4 +18,4 @@ fi
 echo
 echo "Ping iniciando. Para encerrar, aperte Ctrl+C."
 echo
-npm run host
+npm run online
