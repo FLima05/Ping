@@ -6,7 +6,9 @@ services:
     buildCommand: npm install
     startCommand: npm start
     envVars:
-      - key: CHAVE_HOST
+      - key: SESSAO_SEGREDO
         generateValue: true
+      - key: DATABASE_URL
+        sync: false # cola manual no dashboard, e a connection string do Neon/Supabase
       - key: NODE_VERSION
         value: "20"

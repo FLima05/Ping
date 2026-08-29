@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Ping, entrar</title>
+    <link rel="icon" type="image/svg+xml" href="/img/ping-logo.svg" />
+    <link rel="icon" type="image/png" href="/img/ping-logo.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700;800;900&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/css/auth.css" />
+  </head>
+  <body>
+    <div class="cartao">
+      <img class="logo" src="/img/ping-logo.png" alt="Ping" />
+      <p class="subtitulo">Área do professor</p>
+
+      <div class="abas">
+        <button type="button" class="aba escolhida" data-aba="entrar">Entrar</button>
+        <button type="button" class="aba" data-aba="criar">Criar conta</button>
+      </div>
+
+      <form id="form-entrar" class="formulario">
+        <label for="entrar-email">Email</label>
+        <input id="entrar-email" type="email" autocomplete="email" required />
+        <label for="entrar-senha">Senha</label>
+        <input id="entrar-senha" type="password" autocomplete="current-password" required />
+        <button type="submit" class="botao">Entrar</button>
+      </form>
+
+      <form id="form-criar" class="formulario" hidden>
+        <label for="criar-nome">Seu nome</label>
+        <input id="criar-nome" maxlength="60" autocomplete="name" required />
+        <label for="criar-email">Email</label>
+        <input id="criar-email" type="email" autocomplete="email" required />
+        <label for="criar-senha">Senha</label>
+        <input id="criar-senha" type="password" minlength="6" autocomplete="new-password" required />
+        <button type="submit" class="botao">Criar conta</button>
+      </form>
+
+      <p id="erro" class="erro" hidden></p>
+    </div>
+
+    <script src="/js/auth.js"></script>
+  </body>
+</html>

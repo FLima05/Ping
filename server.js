@@ -1,14 +1,22 @@
+require('dotenv').config({ quiet: true }); // sem isso o pacote imprime propaganda aleatoria no boot
+
 const fs = require('fs');
 const http = require('http');
 const path = require('path');
 const express = require('express');
 const QRCode = require('qrcode');
+const bcrypt = require('bcryptjs');
 const { WebSocketServer } = require('ws');
+const { pool, migrar } = require('./db');
+const { professorDaRequisicao, cabecalhoLogin, cabecalhoLogout } = require('./auth');
 
 const PORTA = Number(process.env.PORT) || 3000;
-const CHAVE = process.env.CHAVE_HOST || '';
 const PASTA_QUIZZES = path.join(__dirname, 'quizzes');
 const PASTA_RELATORIOS = path.join(__dirname, 'relatorios');
+
+const CUSTO_HASH = 10; // fator de custo do bcrypt
+const LIMITE_TENTATIVAS_LOGIN = 8; // por IP, por janela
+const JANELA_LOGIN_MS = 5 * 60 * 1000;
 
 const LIMITE_MENSAGENS = 25; // por segundo, por conexao
 const JANELA_MS = 1000;
@@ -124,6 +132,7 @@ let ultimoRelatorio = null; // { nome, csv }
 
 const app = express();
 app.set('trust proxy', 1); // Render fica atras de proxy, sem isso req.protocol vem http
+app.use(express.json({ limit: '10kb' }));
 
 // sem no-cache o celular fica com a tela da versao anterior depois do deploy
 app.use(
@@ -134,10 +143,12 @@ app.use(
   })
 );
 
-app.get('/', (req, res) => res.redirect('/play'));
+app.get('/', (req, res) => res.redirect(professorDaRequisicao(req) ? '/host' : '/entrar'));
+
+app.get('/entrar', (req, res) => res.sendFile(path.join(__dirname, 'public', 'entrar.html')));
 
 app.get('/host', (req, res) => {
-  if (CHAVE && req.query.chave !== CHAVE) return res.status(403).send('chave do host invalida');
+  if (!professorDaRequisicao(req)) return res.redirect('/entrar');
   res.sendFile(path.join(__dirname, 'public', 'host.html'));
 });
 
@@ -146,11 +157,80 @@ app.get('/play', (req, res) => res.sendFile(path.join(__dirname, 'public', 'play
 app.get('/entrada.json', (req, res) => res.json({ url: urlDeEntrada(req) }));
 
 app.get('/relatorio.csv', (req, res) => {
-  if (CHAVE && req.query.chave !== CHAVE) return res.status(403).send('chave do host invalida');
+  if (!professorDaRequisicao(req)) return res.status(403).send('entra na conta pra baixar o relatorio');
   if (!ultimoRelatorio) return res.status(404).send('nenhuma partida terminada ainda');
   res.type('text/csv; charset=utf-8');
   res.setHeader('Content-Disposition', 'attachment; filename="' + ultimoRelatorio.nome + '"');
   res.send(ultimoRelatorio.csv);
+});
+
+/* ===================== CONTA ===================== */
+
+const tentativasLogin = new Map(); // ip -> { contador, janela }
+
+function limitarLogin(ip) {
+  const agora = Date.now();
+  const registro = tentativasLogin.get(ip) || { contador: 0, janela: agora };
+  if (agora - registro.janela > JANELA_LOGIN_MS) {
+    registro.contador = 0;
+    registro.janela = agora;
+  }
+  registro.contador += 1;
+  tentativasLogin.set(ip, registro);
+  return registro.contador <= LIMITE_TENTATIVAS_LOGIN;
+}
+
+function emailValido(email) {
+  return typeof email === 'string' && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) && email.length <= 200;
+}
+
+app.post('/api/criar-conta', async (req, res) => {
+  const nome = String(req.body.nome || '').trim().slice(0, 60);
+  const email = String(req.body.email || '').trim().toLowerCase();
+  const senha = String(req.body.senha || '');
+
+  if (!nome) return res.status(400).json({ erro: 'digita seu nome' });
+  if (!emailValido(email)) return res.status(400).json({ erro: 'email invalido' });
+  if (senha.length < 6) return res.status(400).json({ erro: 'senha precisa de pelo menos 6 caracteres' });
+
+  try {
+    const hash = await bcrypt.hash(senha, CUSTO_HASH);
+    const resultado = await pool.query(
+      'INSERT INTO professores (email, nome, senha_hash) VALUES ($1, $2, $3) RETURNING id',
+      [email, nome, hash]
+    );
+    res.setHeader('Set-Cookie', cabecalhoLogin(req, resultado.rows[0].id));
+    res.json({ ok: true });
+  } catch (erro) {
+    if (erro.code === '23505') return res.status(409).json({ erro: 'ja existe conta com esse email' });
+    console.error(erro);
+    res.status(500).json({ erro: 'nao consegui criar a conta, tenta de novo' });
+  }
+});
+
+app.post('/api/entrar', async (req, res) => {
+  if (!limitarLogin(req.ip)) return res.status(429).json({ erro: 'muitas tentativas, espera um pouco' });
+
+  const email = String(req.body.email || '').trim().toLowerCase();
+  const senha = String(req.body.senha || '');
+  const generico = { erro: 'email ou senha invalidos' };
+
+  try {
+    const resultado = await pool.query('SELECT id, senha_hash FROM professores WHERE email = $1', [email]);
+    if (resultado.rows.length === 0) return res.status(401).json(generico);
+    const confere = await bcrypt.compare(senha, resultado.rows[0].senha_hash);
+    if (!confere) return res.status(401).json(generico);
+    res.setHeader('Set-Cookie', cabecalhoLogin(req, resultado.rows[0].id));
+    res.json({ ok: true });
+  } catch (erro) {
+    console.error(erro);
+    res.status(500).json({ erro: 'nao consegui entrar, tenta de novo' });
+  }
+});
+
+app.post('/api/sair', (req, res) => {
+  res.setHeader('Set-Cookie', cabecalhoLogout(req));
+  res.json({ ok: true });
 });
 
 app.get('/qr.svg', async (req, res) => {
@@ -518,9 +598,10 @@ function fecharSeTodosResponderam() {
 
 /* ===================== WEBSOCKET ===================== */
 
-wss.on('connection', (ws) => {
+wss.on('connection', (ws, req) => {
   ws.contador = 0;
   ws.janela = Date.now();
+  ws.professorId = professorDaRequisicao(req); // cookie da mesma conexao http que fez o upgrade
 
   ws.on('message', (bruto) => {
     // janela deslizante simples: passou do limite, derruba a conexao
@@ -546,7 +627,7 @@ wss.on('connection', (ws) => {
     if (msg.tipo === 'ping') return; // so segura a conexao e o servico acordado
 
     if (msg.tipo === 'entrar_host') {
-      if (CHAVE && msg.chave !== CHAVE) return;
+      if (!ws.professorId) return;
       hosts.add(ws);
       enviar(ws, estadoHost());
       return;
@@ -730,16 +811,33 @@ setInterval(() => {
 
 /* ===================== BOOT ===================== */
 
-servidor.listen(PORTA, '0.0.0.0', async () => {
-  // Render preenche essa variavel sozinho; sem ela (dev local) cai no localhost
-  const base = process.env.RENDER_EXTERNAL_URL || 'http://localhost:' + PORTA;
-
-  console.log('host:   ' + base + '/host' + (CHAVE ? '?chave=' + encodeURIComponent(CHAVE) : ''));
-  console.log('player: ' + base + '/play');
+async function iniciar() {
+  if (!process.env.DATABASE_URL) {
+    console.error('faltou DATABASE_URL: crie um Postgres gratuito (Neon ou Supabase) e defina a variavel de ambiente');
+    process.exit(1);
+  }
 
   try {
-    console.log(await QRCode.toString(base + '/play', { type: 'terminal', small: true }));
+    await migrar();
   } catch (erro) {
-    console.error(erro);
+    console.error('nao consegui preparar o banco: ' + erro.message);
+    process.exit(1);
   }
-});
+
+  servidor.listen(PORTA, '0.0.0.0', async () => {
+    // Render preenche essa variavel sozinho; sem ela (dev local) cai no localhost
+    const base = process.env.RENDER_EXTERNAL_URL || 'http://localhost:' + PORTA;
+
+    console.log('entrar:  ' + base + '/entrar');
+    console.log('host:    ' + base + '/host');
+    console.log('player:  ' + base + '/play');
+
+    try {
+      console.log(await QRCode.toString(base + '/play', { type: 'terminal', small: true }));
+    } catch (erro) {
+      console.error(erro);
+    }
+  });
+}
+
+iniciar();

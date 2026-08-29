@@ -8,30 +8,35 @@ Alternativa livre ao Kahoot, sem conta, sem licença e sem limite de participant
 
 O Ping roda hospedado no Render, sempre. Não existe mais modo local com detecção de IP de rede ou túnel: essas duas formas geravam problema de rede diferente em cada escola e não valiam a complexidade. Uma instância na nuvem resolve pra qualquer rede, inclusive as que bloqueiam tráfego entre aparelhos.
 
-Cada professor sobe a própria instância. Isso é importante: o Ping guarda a partida na memória e atende **uma turma por vez**. Duas turmas na mesma instância disputam o mesmo placar.
+A tela do host agora exige login de professor (cadastro simples, com email e senha, guardado num Postgres). Isso substituiu a antiga `CHAVE_HOST` na URL.
 
-1. Faça um fork deste repositório.
-2. Entre em `render.com` com a conta do GitHub.
-3. `New`, `Web Service`, escolha o fork.
-4. Runtime `Node`, Build Command `npm install`, Start Command `npm start`, Instance Type `Free`.
-5. Em `Environment`, crie `CHAVE_HOST` com um valor aleatório seu.
-6. `Deploy`. Sai um endereço fixo, tipo `https://seu-ping.onrender.com`.
+Precisa de um banco Postgres antes de fazer o deploy. O do próprio Render expira em 30 dias no plano grátis, então use um separado que não expira:
 
-Com o `render.yaml` do repositório, o Render preenche tudo isso sozinho e já gera a `CHAVE_HOST`.
+1. Crie um projeto grátis em [neon.tech](https://neon.tech) ou [supabase.com](https://supabase.com).
+2. Copie a connection string (Neon: botão `Connect`, escolha `Direct connection`).
+
+Com o banco pronto:
+
+3. Faça um fork deste repositório.
+4. Entre em `render.com` com a conta do GitHub.
+5. `New`, `Web Service`, escolha o fork. Com o `render.yaml` do repositório, o Render já preenche Runtime, Build e Start Command sozinho, e gera a `SESSAO_SEGREDO` automaticamente.
+6. Em `Environment`, cole a connection string do passo 2 em `DATABASE_URL`.
+7. `Deploy`. Sai um endereço fixo, tipo `https://seu-ping.onrender.com`.
+
+Cada professor sobe a própria instância. Isso é importante: o Ping guarda a partida em andamento na memória e atende **uma turma por vez**. Duas turmas na mesma instância disputam o mesmo placar. Contas de professor, por outro lado, ficam no Postgres e sobrevivem a reinício e deploy.
 
 Endereços:
 
-- Projeção: `https://seu-ping.onrender.com/host?chave=SUA_CHAVE`
+- Login: `https://seu-ping.onrender.com/entrar`
+- Projeção: `https://seu-ping.onrender.com/host`
 - Alunos: `https://seu-ping.onrender.com/play`, ou só o QR da tela
 
 O que esperar do plano gratuito:
 
 - O serviço dorme depois de 15 minutos sem tráfego e leva perto de um minuto para acordar. Abra a tela do host antes de a aula começar.
 - Uma instância só, sem escala. Não ligue instância extra, senão cada aluno cai numa partida diferente.
-- Reinício ou queda zera a partida em andamento.
+- Reinício ou queda zera a **partida em andamento**, mas não a conta do professor nem o histórico salvo no banco.
 - O relatório salvo em disco some no próximo deploy, mas o botão de baixar continua funcionando enquanto a partida estiver na memória.
-
-Sem a `CHAVE_HOST`, qualquer pessoa com o endereço abre o `/host` e controla a partida. Configure antes de usar em aula.
 
 ## Desenvolvimento local
 
@@ -111,7 +116,8 @@ Tema pronto e revisado é a contribuição mais útil para o projeto. Veja `CONT
 | Variável | Para que serve | Padrão |
 | --- | --- | --- |
 | `PORT` | Porta do servidor | `3000` |
-| `CHAVE_HOST` | Exige `?chave=valor` para abrir a tela do host | vazio, tela aberta |
+| `DATABASE_URL` | Connection string do Postgres (contas de professor) | obrigatória, sem ela o servidor não sobe |
+| `SESSAO_SEGREDO` | Assina o cookie de login. Sem valor fixo, todo mundo desloga a cada reinício | aleatório a cada boot |
 
 ## Estrutura
 
@@ -119,33 +125,39 @@ Tema pronto e revisado é a contribuição mais útil para o projeto. Veja `CONT
 Ping/
 ├── render.yaml
 ├── package.json
+├── .env.example
+├── db.js
+├── auth.js
+├── server.js
 ├── quizzes/
 │   ├── c.json
 │   ├── css.json
 │   ├── git.json
 │   ├── html.json
 │   └── js.json
-├── server.js
 └── public/
     ├── host.html
     ├── play.html
+    ├── entrar.html
     ├── css/
     │   ├── host.css
-    │   └── play.css
+    │   ├── play.css
+    │   └── auth.css
     ├── img/
     │   ├── ping-logo.png
     │   └── ping-logo.svg
     └── js/
         ├── host.js
-        └── play.js
+        ├── play.js
+        └── auth.js
 ```
 
-Stack: Node com Express, WebSocket pela biblioteca `ws`, front em HTML, CSS e JavaScript puro. Sem framework e sem etapa de build.
+Stack: Node com Express, WebSocket pela biblioteca `ws`, Postgres pela `pg`, senha com `bcryptjs`, front em HTML, CSS e JavaScript puro. Sem framework e sem etapa de build.
 
 ## Limitações conhecidas
 
 - Uma sala por instância, sem PIN
-- Nada é salvo em banco, o placar vive na memória do servidor
+- A partida em si não é salva em banco, o placar vive na memória do servidor. Só a conta do professor fica no Postgres
 - Empate não tem critério de desempate
 - Não existe tela para criar ou editar perguntas, a edição é no arquivo JSON
 - Perguntas e alternativas não são embaralhadas entre turmas

@@ -165,6 +165,24 @@ body {
   gap: 7px;
 }
 
+.sair {
+  font-size: 0.6em;
+  font-weight: 800;
+  padding: 6px 14px;
+  background: transparent;
+  color: var(--apagado);
+  border: 2px solid var(--borda);
+  border-radius: 999px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: border-color 0.15s var(--ease), color 0.15s var(--ease);
+}
+
+.sair:hover {
+  border-color: var(--vermelho);
+  color: var(--vermelho);
+}
+
 #conexao:not(:empty)::before {
   content: "";
   width: 8px;

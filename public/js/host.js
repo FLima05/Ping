@@ -35,8 +35,14 @@ const elRelatorio = el('relatorio');
 const elContador = el('contador');
 const elAvancar = el('avancar');
 const elReacoes = el('reacoes');
+const elSair = el('sair');
 
-const chave = new URLSearchParams(location.search).get('chave') || '';
+elSair.addEventListener('click', () => {
+  fetch('/api/sair', { method: 'POST' }).finally(() => {
+    location.href = '/entrar';
+  });
+});
+
 let ws = null;
 let animando = false;
 let ultimaAnimacao = '';
@@ -125,7 +131,7 @@ function conectar() {
 
   ws.addEventListener('open', () => {
     elConexao.textContent = '';
-    enviar({ tipo: 'entrar_host', chave: chave });
+    enviar({ tipo: 'entrar_host' });
   });
 
   ws.addEventListener('message', (evento) => {
@@ -472,7 +478,7 @@ function desenhar(e) {
   }
 
   elRelatorio.hidden = !(e.estado === 'fim' && e.relatorio);
-  elRelatorio.href = '/relatorio.csv' + (chave ? '?chave=' + encodeURIComponent(chave) : '');
+  elRelatorio.href = '/relatorio.csv';
 
   elContador.textContent = e.respondidas + ' de ' + e.conectados + ' responderam';
   elAvancar.textContent = rotulos[e.estado];

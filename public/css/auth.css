@@ -1,0 +1,144 @@
+:root {
+  --fundo: #0b0b0d;
+  --superficie: #1a1a1f;
+  --borda: #2e2e35;
+  --texto: #ffffff;
+  --apagado: #9aa0a6;
+  --azul: #1368ce;
+  --vermelho: #e21b3c;
+  --radius: 20px;
+  --fonte: "Poppins", "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
+  --ease: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+[hidden] {
+  display: none !important;
+}
+
+body {
+  background: var(--fundo);
+  color: var(--texto);
+  font-family: var(--fonte);
+  min-height: 100dvh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.cartao {
+  width: 100%;
+  max-width: 380px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  text-align: center;
+}
+
+.logo {
+  width: 220px;
+  margin: 0 auto;
+  filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.45));
+}
+
+.subtitulo {
+  font-size: 14px;
+  color: var(--apagado);
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+
+.abas {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  background: var(--superficie);
+  border: 2px solid var(--borda);
+  border-radius: 999px;
+  padding: 4px;
+}
+
+.aba {
+  padding: 10px;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--apagado);
+  background: transparent;
+  border: none;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background 0.15s var(--ease), color 0.15s var(--ease);
+}
+
+.aba.escolhida {
+  background: var(--azul);
+  color: #fff;
+}
+
+.formulario {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  text-align: left;
+}
+
+.formulario label {
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--apagado);
+}
+
+.formulario input {
+  width: 100%;
+  font-size: 16px;
+  font-weight: 600;
+  padding: 13px 14px;
+  background: var(--superficie);
+  color: var(--texto);
+  border: 2px solid var(--borda);
+  border-radius: 12px;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.15s var(--ease);
+}
+
+.formulario input:focus {
+  border-color: var(--azul);
+}
+
+.botao {
+  margin-top: 4px;
+  font-size: 16px;
+  font-weight: 800;
+  padding: 13px;
+  background: #fff;
+  color: #111;
+  border: none;
+  border-radius: 999px;
+  font-family: inherit;
+  cursor: pointer;
+  box-shadow: 0 5px 0 #bbb;
+  transition: transform 0.1s var(--ease);
+}
+
+.botao:active {
+  transform: translateY(3px);
+  box-shadow: 0 2px 0 #bbb;
+}
+
+.erro {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--vermelho);
+}
