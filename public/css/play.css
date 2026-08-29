@@ -83,13 +83,11 @@ body {
 }
 
 .logo {
-  font-size: 52px;
-  font-weight: 900;
-  letter-spacing: -2px;
-  background: linear-gradient(90deg, var(--vermelho), var(--amarelo) 33%, var(--azul) 66%, var(--roxo));
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
+  display: block;
+  width: min(70%, 260px);
+  height: auto;
+  margin: 0 auto;
+  filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.45));
 }
 
 .subtitulo {

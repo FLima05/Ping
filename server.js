@@ -22,7 +22,7 @@ const LEITURA_MAXIMA_MS = 7000;
 const LEITURA_MS_POR_CARACTERE = 60;
 
 // mesma lista no play.js pro seletor; aqui so valida o que chega
-const AVATARES = ['🦊', '🐼', '🐸', '🐵', '🐨', '🦁', '🐯', '🐰', '🐺', '🦄', '🐙', '🦖', '🐧', '🦉', '🐝', '🦋', '🐳', '🐢', '🐲', '👾', '🤖', '👻', '🥷', '🐴'];
+const AVATARES = ['🦊', '🐼', '🐸', '🐵', '🐨', '🦁', '🐯', '🐰', '🐺', '🦄', '🐙', '🦖', '🐧', '🦉', '🐝', '🦋', '🐳', '🐢', '🐲', '👾', '🤖', '👻', '🐔', '🐴'];
 const EMOJIS_REACAO = ['👍', '❤️', '😂', '😮', '🔥', '👏'];
 const REACAO_INTERVALO_MS = 1200; // trava spam de reacao por jogador
 

@@ -242,16 +242,11 @@ body {
 }
 
 #marca {
-  text-align: center;
-  font-size: clamp(44px, 8vw, 92px);
-  font-weight: 900;
-  letter-spacing: -3px;
-  line-height: 1;
-  background: linear-gradient(90deg, var(--vermelho), var(--amarelo) 33%, var(--azul) 66%, var(--roxo));
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-  filter: drop-shadow(0 2px 0 rgba(0, 0, 0, 0.35));
+  display: block;
+  width: clamp(220px, 26vw, 340px);
+  height: auto;
+  margin: 0 auto;
+  filter: drop-shadow(0 6px 10px rgba(0, 0, 0, 0.45));
 }
 
 #config h2,
