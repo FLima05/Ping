@@ -3,8 +3,7 @@ services:
     name: ping
     runtime: node
     plan: free
-    # --omit=optional pula o cloudflared, que so serve pro modo local com tunel
-    buildCommand: npm install --omit=optional
+    buildCommand: npm install
     startCommand: npm start
     envVars:
       - key: CHAVE_HOST

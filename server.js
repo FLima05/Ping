@@ -1,5 +1,4 @@
 const fs = require('fs');
-const os = require('os');
 const http = require('http');
 const path = require('path');
 const express = require('express');
@@ -25,13 +24,6 @@ const LEITURA_MS_POR_CARACTERE = 60;
 const AVATARES = ['🦊', '🐼', '🐸', '🐵', '🐨', '🦁', '🐯', '🐰', '🐺', '🦄', '🐙', '🦖', '🐧', '🦉', '🐝', '🦋', '🐳', '🐢', '🐲', '👾', '🤖', '👻', '🐔', '🐴'];
 const EMOJIS_REACAO = ['👍', '❤️', '😂', '😮', '🔥', '👏'];
 const REACAO_INTERVALO_MS = 1200; // trava spam de reacao por jogador
-
-// nomes de adaptador que nunca servem pro celular alcancar
-const MODO_ONLINE = process.argv.includes('--online');
-let urlPublica = ''; // preenchida quando o tunel sobe
-
-// nomes de adaptador que nunca servem pro celular alcancar
-const ADAPTADOR_IGNORADO = /virtual|vmware|virtualbox|vethernet|hyper-v|wsl|docker|zerotier|tailscale|loopback|bluetooth|utun/i;
 
 /* ===================== TEMAS ===================== */
 
@@ -110,39 +102,9 @@ const bancos = carregarBancos();
 
 /* ===================== REDE ===================== */
 
-function ipsLocais() {
-  const candidatos = [];
-  const redes = os.networkInterfaces();
-  for (const nome of Object.keys(redes)) {
-    if (ADAPTADOR_IGNORADO.test(nome)) continue;
-    for (const info of redes[nome] || []) {
-      if (info.family !== 'IPv4' || info.internal) continue;
-      if (info.address.startsWith('169.254.')) continue; // sem DHCP, nao roteia
-      if (info.address.startsWith('192.168.56.')) continue; // rede so do VirtualBox
-      candidatos.push({ nome, ip: info.address });
-    }
-  }
-  return candidatos;
-}
-
-function ipLocal() {
-  if (process.env.IP_LOCAL) return process.env.IP_LOCAL;
-  const lista = ipsLocais();
-  const escolhido =
-    lista.find((c) => c.ip.startsWith('192.168.')) ||
-    lista.find((c) => c.ip.startsWith('172.2')) || // roteador do iPhone
-    lista.find((c) => c.ip.startsWith('10.')) ||
-    lista[0];
-  return escolhido ? escolhido.ip : 'localhost';
-}
-
-// hospedado usa o dominio da requisicao; local troca localhost pelo IP da rede
+// sempre hospedado: o dominio da propria requisicao e o unico endereco que existe
 function urlDeEntrada(req) {
-  if (urlPublica) return urlPublica + '/play'; // tunel no ar, todo mundo entra por ele
-  const host = req.get('host') || '';
-  const ehLocal = host.startsWith('localhost') || host.startsWith('127.0.0.1');
-  if (!ehLocal) return req.protocol + '://' + host + '/play';
-  return 'http://' + ipLocal() + ':' + (host.split(':')[1] || PORTA) + '/play';
+  return req.protocol + '://' + (req.get('host') || '') + '/play';
 }
 
 // nome do aluno vai pro projetor, entao tira emoji, simbolo solto e espaco repetido
@@ -768,82 +730,16 @@ setInterval(() => {
 
 /* ===================== BOOT ===================== */
 
-// sobe um tunel do Cloudflare e devolve a url publica, com https e WebSocket funcionando
-async function abrirTunel() {
-  const { Tunnel, bin, install } = require('cloudflared');
-
-  if (!fs.existsSync(bin)) {
-    console.log('baixando o cloudflared, so na primeira vez...');
-    await install(bin);
-  }
-
-  const tunel = Tunnel.quick('http://localhost:' + PORTA);
-
-  const endereco = await new Promise((resolve, reject) => {
-    const prazo = setTimeout(() => reject(new Error('o tunel demorou demais para responder')), 30000);
-    tunel.once('url', (u) => {
-      clearTimeout(prazo);
-      resolve(u);
-    });
-  });
-
-  await new Promise((resolve) => tunel.once('connected', resolve));
-
-  tunel.on('exit', (codigo) => {
-    console.log('tunel encerrado, codigo ' + codigo);
-    urlPublica = '';
-  });
-
-  process.on('SIGINT', () => {
-    tunel.stop();
-    process.exit(0);
-  });
-
-  return endereco;
-}
-
-// abre a tela do host sozinho quando o script de atalho e usado
-function abrirNavegador(url) {
-  const { exec } = require('child_process');
-  const comando = process.platform === 'win32' ? 'start ""' : process.platform === 'darwin' ? 'open' : 'xdg-open';
-  exec(comando + ' "' + url + '"', (erro) => {
-    if (erro) console.log('abra manualmente: ' + url);
-  });
-}
-
 servidor.listen(PORTA, '0.0.0.0', async () => {
-  const redes = ipsLocais();
+  // Render preenche essa variavel sozinho; sem ela (dev local) cai no localhost
+  const base = process.env.RENDER_EXTERNAL_URL || 'http://localhost:' + PORTA;
 
-  if (MODO_ONLINE) {
-    console.log('abrindo o tunel, isso leva alguns segundos...');
-    try {
-      urlPublica = await abrirTunel();
-    } catch (erro) {
-      console.error('nao consegui abrir o tunel: ' + erro.message);
-      console.error('sem internet, ou o cloudflared foi bloqueado. Rodando so na rede local.');
-    }
-  } else if (redes.length === 0) {
-    console.log('nenhuma rede local encontrada, conecte o computador ao Wi-Fi');
-  } else if (redes.length > 1) {
-    console.log('IPs encontrados: ' + redes.map((c) => c.nome + '=' + c.ip).join('   '));
-    console.log('QR apontando pro lugar errado? rode com IP_LOCAL=o_ip_certo npm start');
-  }
-
-  const url = urlPublica ? urlPublica + '/play' : 'http://' + ipLocal() + ':' + PORTA + '/play';
-
-  console.log('');
-  console.log('host:   http://localhost:' + PORTA + '/host');
-  console.log('player: ' + url);
-  if (urlPublica) console.log('link publico, qualquer rede entra. Encerre com Ctrl+C ao terminar a aula.');
+  console.log('host:   ' + base + '/host' + (CHAVE ? '?chave=' + encodeURIComponent(CHAVE) : ''));
+  console.log('player: ' + base + '/play');
 
   try {
-    console.log(await QRCode.toString(url, { type: 'terminal', small: true }));
+    console.log(await QRCode.toString(base + '/play', { type: 'terminal', small: true }));
   } catch (erro) {
     console.error(erro);
-  }
-
-  if (process.argv.includes('--abrir')) {
-    const destino = 'http://localhost:' + PORTA + '/host' + (CHAVE ? '?chave=' + encodeURIComponent(CHAVE) : '');
-    setTimeout(() => abrirNavegador(destino), 800);
   }
 });

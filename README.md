@@ -4,26 +4,16 @@ Quiz ao vivo para sala de aula. O professor projeta a tela do host, os alunos en
 
 Alternativa livre ao Kahoot, sem conta, sem licença e sem limite de participantes.
 
-## Escolha o caminho
+## Como colocar no ar
 
-Rede de escola e de faculdade costuma bloquear coisas diferentes, então o Ping roda de três jeitos. Comece pelo primeiro.
-
-| Caminho | Quando usar | O que precisa |
-| --- | --- | --- |
-| **Instância própria na nuvem** | Sempre que houver internet na sala. É o que funciona em rede bloqueada | Conta gratuita no Render, cinco minutos, uma vez |
-| **Local, na máquina do professor** | Sala sem internet, ou quando você controla a rede | Node.js instalado e todo mundo na mesma rede |
-| **Local com túnel** | Você quer link público sem publicar nada | Node.js e a rede liberando o serviço de túnel |
-
-Na prática: se a rede da instituição é fechada, o primeiro caminho é o único que passa.
-
-## Caminho 1: instância própria na nuvem
+O Ping roda hospedado no Render, sempre. Não existe mais modo local com detecção de IP de rede ou túnel: essas duas formas geravam problema de rede diferente em cada escola e não valiam a complexidade. Uma instância na nuvem resolve pra qualquer rede, inclusive as que bloqueiam tráfego entre aparelhos.
 
 Cada professor sobe a própria instância. Isso é importante: o Ping guarda a partida na memória e atende **uma turma por vez**. Duas turmas na mesma instância disputam o mesmo placar.
 
 1. Faça um fork deste repositório.
 2. Entre em `render.com` com a conta do GitHub.
 3. `New`, `Web Service`, escolha o fork.
-4. Runtime `Node`, Build Command `npm install --omit=optional`, Start Command `npm start`, Instance Type `Free`.
+4. Runtime `Node`, Build Command `npm install`, Start Command `npm start`, Instance Type `Free`.
 5. Em `Environment`, crie `CHAVE_HOST` com um valor aleatório seu.
 6. `Deploy`. Sai um endereço fixo, tipo `https://seu-ping.onrender.com`.
 
@@ -43,74 +33,18 @@ O que esperar do plano gratuito:
 
 Sem a `CHAVE_HOST`, qualquer pessoa com o endereço abre o `/host` e controla a partida. Configure antes de usar em aula.
 
-## Caminho 2: local, na máquina do professor
+## Desenvolvimento local
 
-Precisa de Node.js LTS: https://nodejs.org
-
-1. Baixe o Ping: `Code`, `Download ZIP`, e extraia.
-2. Windows: clique duas vezes em `iniciar.bat`. Linux e macOS: `./iniciar.sh` no terminal.
-3. A tela do host abre sozinha. Projete e mostre o QR.
-
-Pelo terminal:
+Pra contribuir com código ou testar mudança antes de subir pro Render:
 
 ```bash
 git clone https://github.com/i-barbosa/Ping.git
 cd Ping
 npm install
-npm run host
+npm start
 ```
 
-O terminal imprime o endereço do aluno e um QR já com o IP da rede.
-
-Internet só é necessária uma vez, para instalar o Node e baixar as dependências. Depois disso o jogo roda offline, desde que exista uma rede local ligando celular e computador.
-
-### Quando o celular não conecta
-
-O sintoma diz a causa:
-
-- **Fica carregando e dá timeout**: isolamento de cliente. A rede proíbe um aparelho de falar com outro. Comum em Wi-Fi de instituição, em rede de convidados e no roteador de celular Android.
-- **Diz recusado na hora**: firewall do Windows ou do antivírus.
-- **Diz que não encontrou o servidor**: IP errado, ou o celular está em outra rede.
-
-Correções, na ordem:
-
-```powershell
-# firewall do Windows, PowerShell como administrador
-Set-NetConnectionProfile -InterfaceAlias "Wi-Fi" -NetworkCategory Private
-netsh advfirewall firewall add rule name="Ping 3000" dir=in action=allow protocol=TCP localport=3000
-```
-
-```powershell
-# IP errado por causa de VirtualBox, VMware, Docker ou WSL
-ipconfig
-$env:IP_LOCAL="192.168.0.15"; npm start
-```
-
-```powershell
-# porta ocupada por um Ping que ficou aberto
-taskkill /IM node.exe /F
-```
-
-Se for isolamento de cliente, não existe correção pelo código. Ordem do que funciona: ponto de acesso do próprio Windows (`Configurações`, `Rede e Internet`, `Ponto de acesso móvel`), depois um roteador Wi-Fi comum mesmo sem internet ligada nele, e por último o roteador do celular, que costuma isolar os aparelhos.
-
-## Caminho 3: local com túnel
-
-Gera um endereço `https` público apontando para a máquina do professor. Serve quando você quer que o aluno entre de qualquer rede, inclusive 4G, sem publicar nada.
-
-```bash
-npm install cloudflared
-npm run online
-```
-
-O endereço muda a cada execução, então use o QR da projeção em vez de ditar o link.
-
-Muita rede institucional bloqueia isso. O serviço precisa de saída na porta 7844, em TCP e em UDP, e firewall corporativo costuma liberar apenas 80 e 443. Para testar antes da aula:
-
-```bash
-node_modules/cloudflared/bin/cloudflared tunnel --url http://localhost:3000
-```
-
-Se o resumo de pré-checagem acusar falha em `UDP Connectivity` e `TCP Connectivity`, a porta está bloqueada nessa rede. Tente `--protocol http2`, e se falhar de novo, vá para o caminho 1.
+Abre em `http://localhost:3000`. Isso é só pra desenvolvimento — pra usar em aula de verdade, hospede no Render (acima). Não existe mais modo de rede local com QR apontando pro IP da máquina.
 
 ## Como funciona a partida
 
@@ -121,7 +55,7 @@ Se o resumo de pré-checagem acusar falha em `UDP Connectivity` e `TCP Connectiv
 5. `Resultado`: aparece a alternativa correta, quantos marcaram cada opção, quem acertou primeiro, e o placar anima os pontos e a troca de posições. A projeção mostra o top 3.
 6. `Próxima pergunta` até acabar o tema. No fim, o pódio é revelado do terceiro para o primeiro, com link para baixar o relatório. `Recomeçar` zera e libera trocar de tema.
 
-Pontuação: acerto vale de 500 a 1000 pontos, caindo conforme a fração do tempo gasta. Acertos seguidos multiplicam até 2 vezes, e errar zera a sequência. Pergunta marcada como `dobro` vale o dobro.
+Pontuação: acerto vale de 500 a 1000 pontos, caindo conforme a fração do tempo gasta. Pergunta marcada como `dobro` vale o dobro. Acertos seguidos rendem um emblema de sequência na tela, mas não multiplicam mais pontos. Jogador pode apostar uma % dos pontos atuais antes de responder: acerta e ganha o valor apostado a mais, erra e perde.
 
 ## Relatório da partida
 
@@ -178,14 +112,11 @@ Tema pronto e revisado é a contribuição mais útil para o projeto. Veja `CONT
 | --- | --- | --- |
 | `PORT` | Porta do servidor | `3000` |
 | `CHAVE_HOST` | Exige `?chave=valor` para abrir a tela do host | vazio, tela aberta |
-| `IP_LOCAL` | Força o IP usado no QR e no link do jogador | detectado automaticamente |
 
 ## Estrutura
 
 ```
 Ping/
-├── iniciar.bat
-├── iniciar.sh
 ├── render.yaml
 ├── package.json
 ├── quizzes/
@@ -201,6 +132,9 @@ Ping/
     ├── css/
     │   ├── host.css
     │   └── play.css
+    ├── img/
+    │   ├── ping-logo.png
+    │   └── ping-logo.svg
     └── js/
         ├── host.js
         └── play.js

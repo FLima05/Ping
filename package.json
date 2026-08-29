@@ -7,12 +7,9 @@
     "node": ">=20"
   },
   "scripts": {
-    "start": "node server.js",
-    "host": "node server.js --abrir",
-    "online": "node server.js --abrir --online"
+    "start": "node server.js"
   },
   "dependencies": {
-    "cloudflared": "^0.7.1",
     "express": "^4.19.2",
     "qrcode": "^1.5.4",
     "ws": "^8.18.0"
