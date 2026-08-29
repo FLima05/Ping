@@ -11,11 +11,20 @@ const CHAVE = process.env.CHAVE_HOST || '';
 const PASTA_QUIZZES = path.join(__dirname, 'quizzes');
 const PASTA_RELATORIOS = path.join(__dirname, 'relatorios');
 
-const MULTIPLICADOR_MAXIMO = 2;
 const LIMITE_MENSAGENS = 25; // por segundo, por conexao
 const JANELA_MS = 1000;
 const TAMANHO_MAXIMO = 2000; // bytes por mensagem
 const LIMITE_JOGADORES = 300;
+
+// tempo de leitura antes das alternativas aparecerem, estilo Kahoot: da pra ler a pergunta sem ja sair caçando resposta
+const LEITURA_MINIMA_MS = 2500;
+const LEITURA_MAXIMA_MS = 7000;
+const LEITURA_MS_POR_CARACTERE = 60;
+
+// mesma lista no play.js pro seletor; aqui so valida o que chega
+const AVATARES = ['🦊', '🐼', '🐸', '🐵', '🐨', '🦁', '🐯', '🐰', '🐺', '🦄', '🐙', '🦖', '🐧', '🦉', '🐝', '🦋', '🐳', '🐢', '🐲', '👾', '🤖', '👻', '🥷', '🐴'];
+const EMOJIS_REACAO = ['👍', '❤️', '😂', '😮', '🔥', '👏'];
+const REACAO_INTERVALO_MS = 1200; // trava spam de reacao por jogador
 
 // nomes de adaptador que nunca servem pro celular alcancar
 const MODO_ONLINE = process.argv.includes('--online');
@@ -225,13 +234,16 @@ const hosts = new Set();
 const jogadores = new Map(); // id -> jogador
 
 const jogo = {
-  estado: 'aguardando', // aguardando | pergunta | resultado | fim
-  modo: 'individual', // individual | equipes
+  estado: 'configurando', // configurando | aguardando | leitura | pergunta | resultado | fim
+  modo: 'individual', // individual | equipes | sobrevivencia
   equipes: [],
   tema: null,
   indice: -1,
-  abertaEm: 0
+  abertaEm: 0,
+  leituraAte: 0 // timestamp em que a leitura acaba e as alternativas aparecem
 };
+
+let timerLeitura = null;
 
 function banco() {
   return jogo.tema ? bancos.get(jogo.tema) : null;
@@ -250,17 +262,41 @@ function online(j) {
   return j.ws && j.ws.readyState === j.ws.OPEN;
 }
 
-// so conta quem esta conectado agora e ja estava dentro quando a pergunta abriu
+// so conta quem esta conectado agora, ja estava dentro quando a pergunta abriu e nao foi eliminado
 function elegiveis() {
-  return [...jogadores.values()].filter((j) => online(j) && j.entrouEm < jogo.abertaEm);
+  return [...jogadores.values()].filter(
+    (j) => online(j) && j.entrouEm < jogo.abertaEm && !(jogo.modo === 'sobrevivencia' && j.eliminado)
+  );
 }
 
-// base cai com o tempo gasto, sequencia multiplica ate 2x, pergunta de dobro dobra tudo
-function pontuar(pergunta, ms, sequencia) {
+// pergunta curta le rapido, pergunta longa precisa de mais tempo antes das alternativas aparecerem
+function duracaoLeitura(pergunta) {
+  const estimativa = LEITURA_MINIMA_MS + pergunta.enunciado.length * LEITURA_MS_POR_CARACTERE;
+  return Math.min(LEITURA_MAXIMA_MS, Math.max(LEITURA_MINIMA_MS, estimativa));
+}
+
+// base cai com o tempo gasto, pergunta de dobro dobra tudo; sequencia nao multiplica mais (so emblema visual)
+function pontuar(pergunta, ms) {
   const fracao = Math.min(ms / (pergunta.tempo * 1000), 1);
   const base = 1000 * (1 - fracao / 2);
-  const multiplicador = Math.min(1 + 0.2 * sequencia, MULTIPLICADOR_MAXIMO);
-  return Math.round(base * multiplicador * (pergunta.dobro ? 2 : 1));
+  return Math.round(base * (pergunta.dobro ? 2 : 1));
+}
+
+// pergunta que mais derrubou a turma, pra puxar assunto no fim da aula
+function perguntaMaisErrada() {
+  const atual = banco();
+  if (!atual) return null;
+  const erros = atual.perguntas.map(() => 0);
+  jogadores.forEach((j) => {
+    j.respostas.forEach((r, i) => {
+      if (r === 'X' || r === '-') erros[i] += 1;
+    });
+  });
+  let pior = -1;
+  erros.forEach((n, i) => {
+    if (n > 0 && (pior === -1 || n > erros[pior])) pior = i;
+  });
+  return pior === -1 ? null : { enunciado: atual.perguntas[pior].enunciado, erros: erros[pior] };
 }
 
 function distribuicao() {
@@ -291,9 +327,12 @@ function placar() {
     .map((j, i) => ({
       id: j.id,
       nome: j.nome,
+      avatar: j.avatar,
       pontos: j.pontos,
       antes: j.pontosAntes,
       ganhou: j.ganhou,
+      sequencia: j.sequencia,
+      eliminado: j.eliminado,
       posicao: i + 1,
       posicaoAntes: ordemAntes.indexOf(j.id) + 1
     }));
@@ -327,18 +366,23 @@ function estadoHost() {
       titulo: b.titulo,
       total: b.perguntas.length
     })),
-    jogadores: [...jogadores.values()].filter(online).map((j) => ({ id: j.id, nome: j.nome, equipe: j.equipe })),
+    jogadores: [...jogadores.values()]
+      .filter(online)
+      .map((j) => ({ id: j.id, nome: j.nome, avatar: j.avatar, equipe: j.equipe, eliminado: j.eliminado })),
     numero: jogo.indice + 1,
     total: perguntas().length,
     enunciado: p ? p.enunciado : '',
     alternativas: p ? p.alternativas : [],
     correta: jogo.estado === 'resultado' && p ? p.correta : null,
     dobro: !!(p && p.dobro),
+    leituraAte: jogo.estado === 'leitura' ? jogo.leituraAte : 0,
     distribuicao: jogo.estado === 'resultado' ? distribuicao() : null,
     maisRapido: jogo.estado === 'resultado' ? maisRapido() : '',
     respondidas: naRodada.filter((j) => j.escolha !== null).length,
     conectados: naRodada.length,
+    conectadosTotal: [...jogadores.values()].filter(online).length,
     relatorio: !!ultimoRelatorio,
+    perguntaDificil: jogo.estado === 'fim' ? perguntaMaisErrada() : null,
     placar: placar()
   };
 }
@@ -348,16 +392,22 @@ function estadoJogador(j) {
   const ordenados = [...jogadores.values()].sort((a, b) => b.pontos - a.pontos);
   return {
     estado: jogo.estado,
+    numero: jogo.indice + 1,
     nome: j.nome,
+    avatar: j.avatar,
     equipe: j.equipe === null ? '' : jogo.equipes[j.equipe] || '',
     posicao: ordenados.findIndex((x) => x.id === j.id) + 1,
     total: ordenados.length,
     sequencia: j.sequencia,
     dobro: !!(p && p.dobro),
-    alternativas: jogo.estado === 'pergunta' && p && j.entrouEm < jogo.abertaEm ? p.alternativas : [],
+    eliminado: j.eliminado,
+    leituraAte: jogo.estado === 'leitura' ? jogo.leituraAte : 0,
+    alternativas:
+      jogo.estado === 'pergunta' && p && j.entrouEm < jogo.abertaEm && !j.eliminado ? p.alternativas : [],
     escolha: j.escolha,
     acertou: jogo.estado === 'resultado' && p ? j.escolha === p.correta : null,
     ganhou: j.ganhou,
+    perdeu: j.perdeu,
     pontos: j.pontos
   };
 }
@@ -399,6 +449,12 @@ function gerarRelatorio() {
       linhas.push(campos.join(';'));
     });
 
+  const pior = perguntaMaisErrada();
+  if (pior) {
+    linhas.push('');
+    linhas.push('pergunta que mais derrubou a turma;' + pior.enunciado.replace(/;/g, ',') + ';' + pior.erros + ' erros');
+  }
+
   // BOM na frente, senao o Excel abre acento errado
   const csv = '\uFEFF' + linhas.join('\n') + '\n';
   const carimbo = new Date().toISOString().slice(0, 16).replace('T', '_').replace(':', 'h');
@@ -426,9 +482,24 @@ function abrirPergunta() {
     j.pontosAntes = j.pontos; // guarda o valor de onde a animacao do placar sai
     j.escolha = null;
     j.ganhou = 0;
+    j.perdeu = 0;
     j.respondeuEm = 0;
   });
+  jogo.estado = 'leitura';
+  jogo.abertaEm = 0; // so passa a valer quando as alternativas abrirem de verdade
+  jogo.leituraAte = Date.now() + duracaoLeitura(perguntaAtual());
+  transmitir();
+  clearTimeout(timerLeitura);
+  timerLeitura = setTimeout(iniciarRespostas, jogo.leituraAte - Date.now());
+}
+
+// leitura acabou (por tempo ou porque o host pulou): abre pra responder e liga o cronometro
+function iniciarRespostas() {
+  clearTimeout(timerLeitura);
+  timerLeitura = null;
+  if (jogo.estado !== 'leitura') return;
   jogo.estado = 'pergunta';
+  jogo.leituraAte = 0;
   jogo.abertaEm = Date.now();
   transmitir();
 }
@@ -437,7 +508,10 @@ function fecharPergunta() {
   jogadores.forEach((j) => {
     if (j.escolha === null) {
       j.sequencia = 0; // ficou sem responder, perde a sequencia
-      if (j.entrouEm < jogo.abertaEm) j.respostas[jogo.indice] = '-';
+      if (j.entrouEm < jogo.abertaEm) {
+        j.respostas[jogo.indice] = '-';
+        if (jogo.modo === 'sobrevivencia') j.eliminado = true;
+      }
     }
   });
   jogo.estado = 'resultado';
@@ -446,19 +520,24 @@ function fecharPergunta() {
 
 // volta pro comeco sem reiniciar o servico, e libera trocar de tema
 function reiniciar() {
+  clearTimeout(timerLeitura);
+  timerLeitura = null;
   jogo.estado = 'aguardando';
   jogo.tema = null;
   jogo.indice = -1;
   jogo.abertaEm = 0;
+  jogo.leituraAte = 0;
   jogadores.forEach((j) => {
     j.pontos = 0;
     j.pontosAntes = 0;
     j.ganhou = 0;
+    j.perdeu = 0;
     j.escolha = null;
     j.respondeuEm = 0;
     j.sequencia = 0;
     j.melhorSequencia = 0;
     j.acertos = 0;
+    j.eliminado = false;
     j.respostas = [];
     j.entrouEm = Date.now();
   });
@@ -467,7 +546,8 @@ function reiniciar() {
 
 function fecharSeTodosResponderam() {
   const dentro = elegiveis();
-  if (jogo.estado === 'pergunta' && dentro.length > 0 && dentro.every((j) => j.escolha !== null)) {
+  // dentro.length 0 acontece quando o ultimo sobrevivente acabou de ser eliminado
+  if (jogo.estado === 'pergunta' && (dentro.length === 0 || dentro.every((j) => j.escolha !== null))) {
     fecharPergunta();
   } else {
     transmitir();
@@ -511,7 +591,7 @@ wss.on('connection', (ws) => {
     }
 
     if (msg.tipo === 'tema') {
-      if (!hosts.has(ws) || jogo.estado !== 'aguardando') return;
+      if (!hosts.has(ws) || (jogo.estado !== 'aguardando' && jogo.estado !== 'configurando')) return;
       if (!bancos.has(msg.arquivo)) return;
       jogo.tema = msg.arquivo;
       transmitir();
@@ -519,9 +599,18 @@ wss.on('connection', (ws) => {
     }
 
     if (msg.tipo === 'modo') {
-      if (!hosts.has(ws) || jogo.estado !== 'aguardando') return;
+      if (!hosts.has(ws) || (jogo.estado !== 'aguardando' && jogo.estado !== 'configurando')) return;
+      jogadores.forEach((j) => {
+        j.eliminado = false; // troca de modo comeca do zero
+      });
       if (msg.modo === 'individual') {
         jogo.modo = 'individual';
+        jogo.equipes = [];
+        jogadores.forEach((j) => {
+          j.equipe = null;
+        });
+      } else if (msg.modo === 'sobrevivencia') {
+        jogo.modo = 'sobrevivencia';
         jogo.equipes = [];
         jogadores.forEach((j) => {
           j.equipe = null;
@@ -563,27 +652,37 @@ wss.on('connection', (ws) => {
     }
 
     if (msg.tipo === 'entrar_jogador') {
+      if (jogo.estado === 'configurando') {
+        enviar(ws, { tipo: 'sala_fechada' });
+        return;
+      }
       const id = String(msg.id || '').slice(0, 40);
       if (!id) return;
       const nome = limparNome(msg.nome);
+      const avatar = AVATARES.includes(msg.avatar) ? msg.avatar : AVATARES[0];
       const antigo = jogadores.get(id);
       if (antigo) {
         antigo.ws = ws; // voltou depois de cair, mantem pontos e resposta da rodada
         antigo.nome = nome;
+        antigo.avatar = avatar;
       } else {
         if (jogadores.size >= LIMITE_JOGADORES) return; // sala cheia
         jogadores.set(id, {
           id,
           nome,
+          avatar,
           equipe: null,
           pontos: 0,
           pontosAntes: 0,
           ganhou: 0,
+          perdeu: 0,
           escolha: null,
           respondeuEm: 0,
           sequencia: 0,
           melhorSequencia: 0,
           acertos: 0,
+          eliminado: false,
+          ultimaReacao: 0,
           respostas: [],
           entrouEm: Date.now(),
           ws
@@ -598,12 +697,15 @@ wss.on('connection', (ws) => {
       const j = jogadores.get(ws.idJogador);
       const p = perguntaAtual();
       if (!j || !p || jogo.estado !== 'pergunta' || j.escolha !== null || j.entrouEm > jogo.abertaEm) return;
+      if (jogo.modo === 'sobrevivencia' && j.eliminado) return;
       const i = Number(msg.indice);
       if (!Number.isInteger(i) || i < 0 || i >= p.alternativas.length) return;
+      const apostaPct = Math.min(Math.max(Number(msg.aposta) || 0, 0), 100);
+      const apostaValor = Math.round(j.pontos * (apostaPct / 100));
       j.escolha = i;
       j.respondeuEm = Date.now() - jogo.abertaEm;
       if (i === p.correta) {
-        j.ganhou = pontuar(p, j.respondeuEm, j.sequencia);
+        j.ganhou = pontuar(p, j.respondeuEm) + apostaValor;
         j.pontos += j.ganhou;
         j.sequencia += 1;
         j.melhorSequencia = Math.max(j.melhorSequencia, j.sequencia);
@@ -612,14 +714,36 @@ wss.on('connection', (ws) => {
       } else {
         j.sequencia = 0;
         j.respostas[jogo.indice] = 'X';
+        if (apostaValor > 0) {
+          j.perdeu = apostaValor;
+          j.pontos = Math.max(0, j.pontos - apostaValor);
+        }
+        if (jogo.modo === 'sobrevivencia') j.eliminado = true;
       }
       fecharSeTodosResponderam();
+      return;
+    }
+
+    if (msg.tipo === 'reacao') {
+      const j = jogadores.get(ws.idJogador);
+      if (!j || !online(j)) return;
+      if (!EMOJIS_REACAO.includes(msg.emoji)) return;
+      const agora = Date.now();
+      if (agora - j.ultimaReacao < REACAO_INTERVALO_MS) return;
+      j.ultimaReacao = agora;
+      const evento = { tipo: 'reacao', emoji: msg.emoji, nome: j.nome };
+      hosts.forEach((h) => enviar(h, evento));
       return;
     }
 
     if (msg.tipo === 'proxima') {
       if (!hosts.has(ws)) return;
       if (jogo.estado === 'fim') reiniciar();
+      else if (jogo.estado === 'configurando') {
+        if (!jogo.tema) return;
+        jogo.estado = 'aguardando';
+        transmitir();
+      } else if (jogo.estado === 'leitura') iniciarRespostas();
       else if (jogo.estado === 'pergunta') fecharPergunta();
       else if (jogo.estado === 'aguardando' && !jogo.tema) return;
       else abrirPergunta();
@@ -647,7 +771,6 @@ setInterval(() => {
 // sobe um tunel do Cloudflare e devolve a url publica, com https e WebSocket funcionando
 async function abrirTunel() {
   const { Tunnel, bin, install } = require('cloudflared');
-      const prazo = setTimeout(() => reject(new Error('o tunel demorou demais para responder')), 60000);
 
   if (!fs.existsSync(bin)) {
     console.log('baixando o cloudflared, so na primeira vez...');

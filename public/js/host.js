@@ -1,6 +1,8 @@
 const letras = ['A', 'B', 'C', 'D', 'E', 'F'];
 const rotulos = {
+  configurando: 'Criar sala',
   aguardando: 'Iniciar',
+  leitura: 'Liberar respostas',
   pergunta: 'Encerrar pergunta',
   resultado: 'Próxima pergunta',
   fim: 'Recomeçar'
@@ -11,6 +13,8 @@ const elNumero = el('numero');
 const elContagem = el('contagem');
 const elConexao = el('conexao');
 const elAbertura = el('abertura');
+const elQrBloco = el('qr-bloco');
+const elSala = el('sala');
 const elTemas = el('temas');
 const elModos = el('modos');
 const elTituloLobby = el('titulo-lobby');
@@ -26,14 +30,17 @@ const elRapido = el('rapido');
 const elSecaoPlacar = el('secao-placar');
 const elPlacarEquipes = el('placar-equipes');
 const elPlacar = el('placar');
+const elPerguntaDificil = el('pergunta-dificil');
 const elRelatorio = el('relatorio');
 const elContador = el('contador');
 const elAvancar = el('avancar');
+const elReacoes = el('reacoes');
 
 const chave = new URLSearchParams(location.search).get('chave') || '';
 let ws = null;
 let animando = false;
 let ultimaAnimacao = '';
+let ultimoSom = '';
 
 /* ===================== ENDERECO DE ENTRADA ===================== */
 
@@ -57,6 +64,56 @@ function atualizarEntrada() {
 atualizarEntrada();
 setInterval(atualizarEntrada, 5000);
 
+/* ===================== SOM ===================== */
+
+let audioCtx = null;
+document.addEventListener(
+  'click',
+  () => {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  },
+  { once: true }
+);
+
+function bipe(freq, duracaoMs, atrasoMs, tipo) {
+  if (!audioCtx) return;
+  const osc = audioCtx.createOscillator();
+  const ganho = audioCtx.createGain();
+  osc.type = tipo || 'sine';
+  osc.frequency.value = freq;
+  const inicio = audioCtx.currentTime + (atrasoMs || 0) / 1000;
+  ganho.gain.setValueAtTime(0.0001, inicio);
+  ganho.gain.exponentialRampToValueAtTime(0.22, inicio + 0.01);
+  ganho.gain.exponentialRampToValueAtTime(0.0001, inicio + duracaoMs / 1000);
+  osc.connect(ganho);
+  ganho.connect(audioCtx.destination);
+  osc.start(inicio);
+  osc.stop(inicio + duracaoMs / 1000 + 0.02);
+}
+
+function tocarAbrir() {
+  bipe(880, 130, 0);
+}
+
+function tocarResultado() {
+  bipe(720, 100, 0);
+}
+
+function tocarFim() {
+  [523, 659, 784, 1047].forEach((freq, i) => bipe(freq, 170, i * 130));
+}
+
+/* ===================== REACOES ===================== */
+
+function mostrarReacao(dados) {
+  const bolha = document.createElement('span');
+  bolha.className = 'reacao-flutuante';
+  bolha.textContent = dados.emoji;
+  bolha.style.left = 8 + Math.random() * 84 + '%';
+  elReacoes.appendChild(bolha);
+  bolha.addEventListener('animationend', () => bolha.remove());
+}
+
 /* ===================== CONEXAO ===================== */
 
 function enviar(dados) {
@@ -73,7 +130,12 @@ function conectar() {
 
   ws.addEventListener('message', (evento) => {
     try {
-      desenhar(JSON.parse(evento.data));
+      const dados = JSON.parse(evento.data);
+      if (dados.tipo === 'reacao') {
+        mostrarReacao(dados);
+        return;
+      }
+      desenhar(dados);
     } catch (erro) {
       console.error(erro);
     }
@@ -120,7 +182,9 @@ function linhaPlacar(linha, rotuloPosicao, valor, modo) {
 
   const nome = document.createElement('span');
   const medalha = { 1: '🥇 ', 2: '🥈 ', 3: '🥉 ' }[rotuloPosicao];
-  nome.textContent = (medalha || rotuloPosicao + '. ') + linha.nome;
+  const avatar = linha.avatar ? linha.avatar + ' ' : '';
+  const fogo = linha.sequencia >= 2 ? ' 🔥' + linha.sequencia : '';
+  nome.textContent = (medalha || rotuloPosicao + '. ') + avatar + linha.nome + fogo;
 
   const ganho = document.createElement('span');
   ganho.className = 'ganho';
@@ -209,9 +273,32 @@ function animarPodio(lista) {
 /* ===================== TELAS ===================== */
 
 function desenharAlternativas(e) {
+  elAlternativas.innerHTML = '';
+
+  if (e.estado === 'leitura') {
+    elAlternativas.className = 'alternativas leitura';
+
+    const aviso = document.createElement('li');
+    aviso.className = 'preparar';
+
+    const texto = document.createElement('span');
+    texto.textContent = 'Leia a pergunta, as alternativas já já aparecem';
+    aviso.appendChild(texto);
+
+    const fundo = document.createElement('span');
+    fundo.className = 'preparar-barra-fundo';
+    const barra = document.createElement('span');
+    barra.className = 'preparar-barra';
+    barra.style.animationDuration = Math.max(0, e.leituraAte - Date.now()) + 'ms';
+    fundo.appendChild(barra);
+    aviso.appendChild(fundo);
+
+    elAlternativas.appendChild(aviso);
+    return;
+  }
+
   const total = (e.distribuicao || []).reduce((soma, n) => soma + n, 0);
   elAlternativas.className = e.correta !== null ? 'alternativas resultado' : 'alternativas';
-  elAlternativas.innerHTML = '';
 
   e.alternativas.forEach((texto, i) => {
     const item = document.createElement('li');
@@ -265,6 +352,7 @@ function desenharModos(e) {
   elModos.querySelectorAll('button').forEach((botao) => {
     const escolhido =
       (botao.dataset.modo === 'individual' && e.modo === 'individual') ||
+      (botao.dataset.modo === 'sobrevivencia' && e.modo === 'sobrevivencia') ||
       (botao.dataset.modo === 'equipes' &&
         e.modo === 'equipes' &&
         Number(botao.dataset.quantidade) === e.equipes.length);
@@ -282,7 +370,7 @@ function desenharLobby(e) {
 
     const avatar = document.createElement('span');
     avatar.className = 'avatar';
-    avatar.textContent = (jogador.nome || '?').trim().charAt(0).toUpperCase();
+    avatar.textContent = jogador.avatar || (jogador.nome || '?').trim().charAt(0).toUpperCase();
     item.appendChild(avatar);
 
     const nome = document.createElement('span');
@@ -330,18 +418,29 @@ function desenhar(e) {
   if (e.estado === 'pergunta') elNumero.textContent = e.tituloTema + ', pergunta ' + e.numero + ' de ' + e.total;
   else if (e.estado === 'resultado') elNumero.textContent = e.tituloTema + ', resultado ' + e.numero + ' de ' + e.total;
   else if (e.estado === 'fim') elNumero.textContent = 'Fim da partida, ' + e.tituloTema;
+  else if (e.estado === 'configurando') elNumero.textContent = 'Escolha o tema pra criar a sala';
   else elNumero.textContent = 'Sala aberta';
 
-  elContagem.textContent = e.conectados + ' na sala';
+  elContagem.textContent = e.conectadosTotal + ' na sala';
 
-  elAbertura.hidden = e.estado !== 'aguardando';
-  elRodada.hidden = e.estado === 'aguardando' || e.estado === 'fim';
-  elSecaoPlacar.hidden = e.estado === 'aguardando' || e.estado === 'pergunta';
+  elAbertura.hidden = e.estado !== 'aguardando' && e.estado !== 'configurando';
+  elQrBloco.hidden = e.estado !== 'aguardando';
+  elSala.hidden = e.estado !== 'aguardando';
+  elRodada.hidden = e.estado === 'aguardando' || e.estado === 'configurando' || e.estado === 'fim';
+  elSecaoPlacar.hidden = e.estado !== 'resultado' && e.estado !== 'fim';
 
-  if (e.estado === 'aguardando') {
+  if (e.estado === 'aguardando' || e.estado === 'configurando') {
     desenharTemas(e);
     desenharModos(e);
     desenharLobby(e);
+  }
+
+  const marcaSom = e.estado + ':' + e.numero;
+  if (marcaSom !== ultimoSom) {
+    ultimoSom = marcaSom;
+    if (e.estado === 'pergunta') tocarAbrir();
+    else if (e.estado === 'resultado') tocarResultado();
+    else if (e.estado === 'fim') tocarFim();
   }
 
   if (!elRodada.hidden) {
@@ -366,10 +465,16 @@ function desenhar(e) {
   }
   if (e.estado === 'aguardando') ultimaAnimacao = '';
 
+  elPerguntaDificil.hidden = !(e.estado === 'fim' && e.perguntaDificil);
+  if (!elPerguntaDificil.hidden) {
+    elPerguntaDificil.textContent =
+      'Pergunta que mais derrubou a turma: "' + e.perguntaDificil.enunciado + '" (' + e.perguntaDificil.erros + ' erraram)';
+  }
+
   elRelatorio.hidden = !(e.estado === 'fim' && e.relatorio);
   elRelatorio.href = '/relatorio.csv' + (chave ? '?chave=' + encodeURIComponent(chave) : '');
 
   elContador.textContent = e.respondidas + ' de ' + e.conectados + ' responderam';
   elAvancar.textContent = rotulos[e.estado];
-  elAvancar.disabled = e.estado === 'aguardando' && !e.tema;
+  elAvancar.disabled = (e.estado === 'aguardando' || e.estado === 'configurando') && !e.tema;
 }

@@ -1,12 +1,20 @@
 const letras = ['A', 'B', 'C', 'D', 'E', 'F'];
+const AVATARES = ['🦊', '🐼', '🐸', '🐵', '🐨', '🦁', '🐯', '🐰', '🐺', '🦄', '🐙', '🦖', '🐧', '🦉', '🐝', '🦋', '🐳', '🐢', '🐲', '👾', '🤖', '👻', '🥷', '🐴'];
+const EMOJIS_REACAO = ['👍', '❤️', '😂', '😮', '🔥', '👏'];
 
 const el = (id) => document.getElementById(id);
 const elEntrada = el('entrada');
 const elJogo = el('jogo');
 const elNome = el('nome');
+const elAvatares = el('avatares');
+const elAvisoSala = el('aviso-sala');
 const elEntrar = el('entrar');
 const elAviso = el('aviso');
 const elAlternativas = el('alternativas');
+const elAposta = el('aposta');
+const elApostaSlider = el('aposta-slider');
+const elApostaValor = el('aposta-valor');
+const elReacoesJogador = el('reacoes-jogador');
 const elPosicao = el('posicao');
 const elPontos = el('pontos');
 const elConexao = el('conexao');
@@ -24,17 +32,114 @@ if (!id) {
 }
 
 let nome = sessionStorage.getItem('ping_nome') || '';
+let avatar = sessionStorage.getItem('ping_avatar') || AVATARES[0];
 let ws = null;
+let tentandoEntrar = null;
+let apostaPct = 0;
+let apostaMarca = '';
+let ultimoSom = '';
 
 if (nome) {
   elEntrada.hidden = true;
   elJogo.hidden = false;
 }
 
+/* ===================== SOM ===================== */
+
+let audioCtx = null;
+document.addEventListener(
+  'click',
+  () => {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  },
+  { once: true }
+);
+
+function bipe(freq, duracaoMs, atrasoMs, tipo) {
+  if (!audioCtx) return;
+  const osc = audioCtx.createOscillator();
+  const ganho = audioCtx.createGain();
+  osc.type = tipo || 'sine';
+  osc.frequency.value = freq;
+  const inicio = audioCtx.currentTime + (atrasoMs || 0) / 1000;
+  ganho.gain.setValueAtTime(0.0001, inicio);
+  ganho.gain.exponentialRampToValueAtTime(0.25, inicio + 0.01);
+  ganho.gain.exponentialRampToValueAtTime(0.0001, inicio + duracaoMs / 1000);
+  osc.connect(ganho);
+  ganho.connect(audioCtx.destination);
+  osc.start(inicio);
+  osc.stop(inicio + duracaoMs / 1000 + 0.02);
+}
+
+function tocarAbrir() {
+  bipe(880, 130, 0);
+}
+
+function tocarAcerto() {
+  bipe(659, 100, 0);
+  bipe(988, 160, 100);
+}
+
+function tocarErro() {
+  bipe(196, 220, 0, 'sawtooth');
+}
+
+/* ===================== AVATAR ===================== */
+
+function montarAvatares() {
+  elAvatares.innerHTML = '';
+  AVATARES.forEach((emoji) => {
+    const botao = document.createElement('button');
+    botao.type = 'button';
+    botao.className = 'avatar-opcao' + (emoji === avatar ? ' selecionado' : '');
+    botao.textContent = emoji;
+    botao.addEventListener('click', () => {
+      avatar = emoji;
+      sessionStorage.setItem('ping_avatar', avatar);
+      elAvatares.querySelectorAll('.avatar-opcao').forEach((b) => b.classList.toggle('selecionado', b === botao));
+    });
+    elAvatares.appendChild(botao);
+  });
+}
+
+montarAvatares();
+
+/* ===================== REACOES ===================== */
+
+function montarReacoes() {
+  elReacoesJogador.innerHTML = '';
+  EMOJIS_REACAO.forEach((emoji) => {
+    const botao = document.createElement('button');
+    botao.type = 'button';
+    botao.className = 'reacao-botao';
+    botao.textContent = emoji;
+    botao.addEventListener('click', () => {
+      if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ tipo: 'reacao', emoji: emoji }));
+      botao.disabled = true;
+      setTimeout(() => {
+        botao.disabled = false;
+      }, 1200);
+    });
+    elReacoesJogador.appendChild(botao);
+  });
+}
+
+montarReacoes();
+
+/* ===================== CONEXAO ===================== */
+
 function entrar() {
   if (ws && ws.readyState === WebSocket.OPEN && nome) {
-    ws.send(JSON.stringify({ tipo: 'entrar_jogador', id: id, nome: nome }));
+    ws.send(JSON.stringify({ tipo: 'entrar_jogador', id: id, nome: nome, avatar: avatar }));
   }
+}
+
+// sala ainda nao foi criada: volta pra entrada e tenta de novo sozinho ate o professor criar
+function salaFechada() {
+  elJogo.hidden = true;
+  elEntrada.hidden = false;
+  elAvisoSala.hidden = false;
+  if (!tentandoEntrar) tentandoEntrar = setInterval(entrar, 3000);
 }
 
 function conectar() {
@@ -47,7 +152,12 @@ function conectar() {
 
   ws.addEventListener('message', (evento) => {
     try {
-      desenhar(JSON.parse(evento.data));
+      const dados = JSON.parse(evento.data);
+      if (dados.tipo === 'sala_fechada') {
+        salaFechada();
+        return;
+      }
+      desenhar(dados);
     } catch (erro) {
       console.error(erro);
       texto(elConexao, 'erro ao desenhar a tela');
@@ -88,14 +198,45 @@ elNome.addEventListener('keydown', (evento) => {
   if (evento.key === 'Enter') confirmarNome();
 });
 
+elApostaSlider.addEventListener('input', () => {
+  apostaPct = Number(elApostaSlider.value);
+  texto(elApostaValor, apostaPct + '%');
+});
+
 function desenhar(e) {
+  if (tentandoEntrar) {
+    clearInterval(tentandoEntrar);
+    tentandoEntrar = null;
+  }
+  elAvisoSala.hidden = true;
+  elEntrada.hidden = true;
+  elJogo.hidden = false;
+
   elAlternativas.innerHTML = '';
   elAviso.className = '';
+  elAposta.hidden = true;
 
-  if (e.estado === 'pergunta' && e.escolha === null && e.alternativas.length === 0) {
+  const marcaSom = e.estado + ':' + e.numero;
+  const somNovo = marcaSom !== ultimoSom;
+  if (somNovo) ultimoSom = marcaSom;
+
+  if (e.eliminado && (e.estado === 'leitura' || e.estado === 'pergunta' || e.estado === 'resultado')) {
+    texto(elAviso, 'Eliminado — só de olho no jogo');
+    elAviso.className = 'eliminado';
+  } else if (e.estado === 'pergunta' && e.escolha === null && e.alternativas.length === 0) {
     texto(elAviso, 'Entrou no meio da pergunta, aguarde a próxima');
   } else if (e.estado === 'pergunta' && e.escolha === null) {
     texto(elAviso, e.dobro ? 'Vale o dobro' : 'Escolha');
+
+    const marca = e.estado + ':' + e.numero;
+    if (apostaMarca !== marca) {
+      apostaMarca = marca;
+      apostaPct = 0;
+      elApostaSlider.value = 0;
+      texto(elApostaValor, '0%');
+    }
+    elAposta.hidden = e.pontos <= 0;
+
     e.alternativas.forEach((opcao, i) => {
       const botao = document.createElement('button');
       botao.type = 'button';
@@ -103,7 +244,9 @@ function desenhar(e) {
       botao.dataset.letra = letras[i];
       botao.textContent = letras[i] + '. ' + opcao;
       botao.addEventListener('click', () => {
-        if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ tipo: 'responder', indice: i }));
+        if (ws && ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({ tipo: 'responder', indice: i, aposta: apostaPct }));
+        }
       });
       elAlternativas.appendChild(botao);
     });
@@ -115,10 +258,16 @@ function desenhar(e) {
     } else if (e.acertou) {
       texto(elAviso, 'Acertou, mais ' + e.ganhou);
       elAviso.className = 'certo';
+      if (somNovo) tocarAcerto();
     } else {
-      texto(elAviso, 'Errou');
+      texto(elAviso, e.perdeu > 0 ? 'Errou e perdeu ' + e.perdeu + ' na aposta' : 'Errou');
       elAviso.className = 'errado';
+      if (somNovo) tocarErro();
     }
+  } else if (e.estado === 'leitura') {
+    texto(elAviso, 'Prepare-se, a pergunta tá na tela');
+    elAviso.className = 'preparar';
+    if (somNovo) tocarAbrir();
   } else if (e.estado === 'fim') {
     texto(elAviso, 'Fim da partida');
   } else {
@@ -128,7 +277,7 @@ function desenhar(e) {
   const partes = [];
   if (e.total > 0 && e.estado !== 'aguardando') partes.push(e.posicao + ' de ' + e.total);
   if (e.equipe) partes.push(e.equipe);
-  if (e.sequencia > 1) partes.push('sequência ' + e.sequencia);
+  if (e.sequencia > 1) partes.push('🔥 ' + e.sequencia);
   texto(elPosicao, partes.join('   '));
   texto(elPontos, e.nome + ': ' + e.pontos + ' pontos');
 }

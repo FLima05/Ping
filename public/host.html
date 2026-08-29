@@ -40,6 +40,7 @@
             <button type="button" class="tema" data-modo="equipes" data-quantidade="2">2 equipes</button>
             <button type="button" class="tema" data-modo="equipes" data-quantidade="3">3 equipes</button>
             <button type="button" class="tema" data-modo="equipes" data-quantidade="4">4 equipes</button>
+            <button type="button" class="tema" data-modo="sobrevivencia">Sobrevivência</button>
           </div>
         </div>
 
@@ -61,6 +62,7 @@
         <ol id="placar-equipes" class="equipes" hidden></ol>
         <h2>Top 3</h2>
         <ol id="placar" class="placar"></ol>
+        <p id="pergunta-dificil" hidden></p>
         <a id="relatorio" class="relatorio" href="/relatorio.csv" hidden>Baixar relatório da partida</a>
       </section>
     </main>
@@ -69,6 +71,8 @@
       <span id="contador">0 de 0 responderam</span>
       <button id="avancar" class="botao">Iniciar</button>
     </footer>
+
+    <div id="reacoes" aria-hidden="true"></div>
 
     <script src="/js/host.js"></script>
   </body>

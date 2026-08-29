@@ -277,7 +277,7 @@ body {
 
 .modos {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
   gap: 12px;
 }
 
@@ -512,6 +512,57 @@ body {
   filter: saturate(0.6);
 }
 
+/* fase de leitura: pergunta na tela, alternativas ainda escondidas */
+.alternativas.leitura {
+  grid-template-columns: 1fr;
+  grid-template-rows: 1fr;
+}
+
+.preparar {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 22px;
+  padding: 24px;
+  background: var(--superficie);
+  border: 2px solid var(--borda);
+  border-radius: var(--radius);
+  font-size: clamp(22px, 3.2vw, 38px);
+  font-weight: 800;
+  color: var(--apagado);
+  text-align: center;
+  animation: pulsar 1.4s ease-in-out infinite;
+}
+
+.preparar-barra-fundo {
+  width: min(70%, 460px);
+  height: 10px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.preparar-barra {
+  display: block;
+  height: 100%;
+  width: 100%;
+  background: linear-gradient(90deg, var(--azul), var(--roxo));
+  transform-origin: left center;
+  animation-name: encolher;
+  animation-timing-function: linear;
+  animation-fill-mode: forwards;
+}
+
+@keyframes encolher {
+  from {
+    transform: scaleX(1);
+  }
+  to {
+    transform: scaleX(0);
+  }
+}
+
 .quantidade {
   font-size: 0.85em;
   font-weight: 800;
@@ -660,6 +711,44 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
+#pergunta-dificil {
+  flex-shrink: 0;
+  margin-top: 16px;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--apagado);
+}
+
+#reacoes {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 50;
+}
+
+.reacao-flutuante {
+  position: absolute;
+  bottom: 90px;
+  font-size: 40px;
+  animation: flutuar 3.2s ease-out forwards;
+}
+
+@keyframes flutuar {
+  0% {
+    opacity: 0;
+    transform: translateY(0) scale(0.6);
+  }
+  12% {
+    opacity: 1;
+    transform: translateY(-40px) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-420px) scale(1.1);
+  }
+}
+
 .relatorio {
   align-self: flex-start;
   flex-shrink: 0;
@@ -714,12 +803,6 @@ body {
 }
 
 /* ===== RESPONSIVO ===== */
-
-@media (max-width: 1100px) {
-  .modos {
-    grid-template-columns: repeat(2, 1fr);
-  }
-}
 
 @media (max-width: 820px) {
   #qr-bloco {

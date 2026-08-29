@@ -132,6 +132,38 @@ body {
   color: #555;
 }
 
+.avatares {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 8px;
+}
+
+.avatar-opcao {
+  aspect-ratio: 1;
+  font-size: 22px;
+  background: var(--superficie);
+  border: 2px solid var(--borda);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: border-color 0.15s var(--ease), transform 0.1s var(--ease), background 0.15s var(--ease);
+}
+
+.avatar-opcao:active {
+  transform: translateY(2px);
+}
+
+.avatar-opcao.selecionado {
+  background: linear-gradient(135deg, var(--azul), #0d4f9e);
+  border-color: #fff;
+}
+
+.aviso-sala {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--amarelo);
+  animation: pulsar 1.4s ease-in-out infinite;
+}
+
 .botao {
   width: 100%;
   min-height: 60px;
@@ -200,6 +232,26 @@ body {
 
 #aviso.errado::before {
   content: "✗";
+}
+
+#aviso.preparar {
+  animation: pulsar 1.4s ease-in-out infinite;
+}
+
+#aviso.eliminado {
+  background: #241419;
+  border-color: #4a2530;
+  color: #d98a9a;
+}
+
+@keyframes pulsar {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.4;
+  }
 }
 
 /* ===== BOTOES SO DE COR (estilo Kahoot) ===== */
@@ -308,6 +360,60 @@ body {
   box-shadow: 0 1px 0 rgba(0, 0, 0, 0.4);
 }
 
+.aposta {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 14px;
+  background: var(--superficie);
+  border: 2px solid var(--borda);
+  border-radius: 14px;
+}
+
+.aposta label {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--apagado);
+}
+
+.aposta label span {
+  color: var(--acento);
+  font-weight: 800;
+}
+
+.aposta input[type="range"] {
+  width: 100%;
+  accent-color: var(--acento);
+}
+
+.reacoes-jogador {
+  flex-shrink: 0;
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+}
+
+.reacao-botao {
+  flex: 1;
+  max-width: 56px;
+  aspect-ratio: 1;
+  font-size: 20px;
+  background: var(--superficie);
+  border: 2px solid var(--borda);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: transform 0.1s var(--ease), opacity 0.15s var(--ease);
+}
+
+.reacao-botao:active {
+  transform: translateY(2px);
+}
+
+.reacao-botao:disabled {
+  opacity: 0.35;
+}
+
 .rodape-jogo {
   display: flex;
   justify-content: space-between;
@@ -363,8 +469,13 @@ body {
     padding: 8px 12px;
   }
 
-  .rodape-jogo {
+  .rodape-jogo,
+  .reacoes-jogador {
     display: none;
+  }
+
+  .aposta {
+    padding: 6px 12px;
   }
 }
 

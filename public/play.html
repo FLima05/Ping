@@ -29,6 +29,9 @@
           enterkeyhint="go"
           placeholder="Ex: Ana"
         />
+        <p class="rotulo-nome">Seu avatar</p>
+        <div id="avatares" class="avatares"></div>
+        <p id="aviso-sala" class="aviso-sala" hidden>A sala ainda não foi criada, aguardando o professor…</p>
         <button id="entrar" class="botao">Entrar</button>
       </div>
     </section>
@@ -36,6 +39,11 @@
     <section id="jogo" hidden>
       <p id="aviso">Aguarde o início</p>
       <div id="alternativas" class="botoes"></div>
+      <div id="aposta" class="aposta" hidden>
+        <label for="aposta-slider">Apostar <span id="aposta-valor">0%</span> dos pontos</label>
+        <input type="range" id="aposta-slider" min="0" max="100" step="10" value="0" />
+      </div>
+      <div id="reacoes-jogador" class="reacoes-jogador"></div>
       <footer id="rodape" class="rodape-jogo">
         <span id="posicao"></span>
         <span id="pontos"></span>
