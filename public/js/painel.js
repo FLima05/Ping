@@ -1,0 +1,168 @@
+const el = (id) => document.getElementById(id);
+const elSaudacao = el('saudacao');
+const elSair = el('sair');
+const elTemasCirculos = el('temas-circulos');
+const elAbrirBolha = el('abrir-bolha');
+const elBolhaFundo = el('bolha-fundo');
+const elBolhaTemas = el('bolha-temas');
+const elBolhaModos = el('bolha-modos');
+const elBolhaErro = el('bolha-erro');
+const elBolhaConfirmar = el('bolha-confirmar');
+const elFecharBolha = el('fechar-bolha');
+
+let temas = [];
+let temaEscolhido = null;
+let modoEscolhido = 'solo';
+
+elSair.addEventListener('click', () => {
+  fetch('/api/sair', { method: 'POST' }).finally(() => {
+    location.href = '/entrar';
+  });
+});
+
+async function carregarEu() {
+  try {
+    const resposta = await fetch('/api/eu');
+    const eu = await resposta.json();
+    if (resposta.ok) elSaudacao.textContent = 'Olá, ' + eu.nome + ' 👋';
+  } catch (erro) {
+    console.error(erro);
+  }
+}
+
+function iniciais(titulo) {
+  return (titulo || '?').trim().charAt(0).toUpperCase();
+}
+
+function montarCirculo(tema, aoClicar) {
+  const item = document.createElement('button');
+  item.type = 'button';
+  item.className = 'tema-circulo';
+  item.title = tema.titulo + ', ' + tema.total + ' perguntas';
+
+  const bola = document.createElement('span');
+  bola.className = 'tema-bola';
+  bola.textContent = iniciais(tema.titulo);
+  item.appendChild(bola);
+
+  const label = document.createElement('span');
+  label.className = 'tema-label';
+  label.textContent = tema.titulo;
+  item.appendChild(label);
+
+  item.addEventListener('click', () => aoClicar(tema, item));
+  return item;
+}
+
+function desenharCirculosPrincipais() {
+  elTemasCirculos.innerHTML = '';
+  if (temas.length === 0) {
+    const vazio = document.createElement('p');
+    vazio.className = 'temas-vazio';
+    vazio.textContent = 'Nenhum tema ainda. Crie o primeiro em "Criar tema".';
+    elTemasCirculos.appendChild(vazio);
+    return;
+  }
+  temas.forEach((tema) => {
+    elTemasCirculos.appendChild(montarCirculo(tema, (t) => abrirBolha(t)));
+  });
+}
+
+function desenharCirculosBolha() {
+  elBolhaTemas.innerHTML = '';
+  temas.forEach((tema) => {
+    const circulo = montarCirculo(tema, (t, elemento) => {
+      temaEscolhido = t;
+      elBolhaTemas.querySelectorAll('.tema-circulo').forEach((c) => c.classList.remove('escolhido'));
+      elemento.classList.add('escolhido');
+      elBolhaConfirmar.disabled = false;
+    });
+    if (temaEscolhido && temaEscolhido.arquivo === tema.arquivo) circulo.classList.add('escolhido');
+    elBolhaTemas.appendChild(circulo);
+  });
+}
+
+async function carregarTemas() {
+  try {
+    const resposta = await fetch('/api/temas');
+    temas = await resposta.json();
+    if (!Array.isArray(temas)) temas = [];
+    desenharCirculosPrincipais();
+  } catch (erro) {
+    console.error(erro);
+  }
+}
+
+function abrirBolha(temaInicial) {
+  temaEscolhido = temaInicial || null;
+  modoEscolhido = 'solo';
+  elBolhaModos.querySelectorAll('.bolha-modo').forEach((b) => b.classList.toggle('escolhido', b.dataset.modo === 'solo'));
+  elBolhaErro.hidden = true;
+  elBolhaConfirmar.disabled = !temaEscolhido;
+  desenharCirculosBolha();
+  elBolhaFundo.hidden = false;
+}
+
+function fecharBolha() {
+  elBolhaFundo.hidden = true;
+}
+
+elAbrirBolha.addEventListener('click', () => abrirBolha(temaEscolhido));
+elFecharBolha.addEventListener('click', fecharBolha);
+elBolhaFundo.addEventListener('click', (evento) => {
+  if (evento.target === elBolhaFundo) fecharBolha();
+});
+
+elBolhaModos.querySelectorAll('.bolha-modo').forEach((botao) => {
+  botao.addEventListener('click', () => {
+    modoEscolhido = botao.dataset.modo;
+    elBolhaModos.querySelectorAll('.bolha-modo').forEach((b) => b.classList.toggle('escolhido', b === botao));
+  });
+});
+
+// abre uma conexao curta so pra criar a sala, depois manda pro host
+function criarSala() {
+  if (!temaEscolhido) return;
+  elBolhaConfirmar.disabled = true;
+  elBolhaErro.hidden = true;
+
+  const ws = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host);
+  const tempo = setTimeout(() => {
+    ws.close();
+    elBolhaErro.textContent = 'Demorou demais pra responder, tenta de novo';
+    elBolhaErro.hidden = false;
+    elBolhaConfirmar.disabled = false;
+  }, 8000);
+
+  ws.addEventListener('open', () => {
+    ws.send(JSON.stringify({ tipo: 'entrar_host' }));
+    ws.send(JSON.stringify({ tipo: 'tema', arquivo: temaEscolhido.arquivo }));
+    ws.send(JSON.stringify({ tipo: 'modo', modo: modoEscolhido }));
+    ws.send(JSON.stringify({ tipo: 'proxima' }));
+  });
+
+  ws.addEventListener('message', (evento) => {
+    try {
+      const dados = JSON.parse(evento.data);
+      if (dados.estado === 'aguardando') {
+        clearTimeout(tempo);
+        ws.close();
+        location.href = '/host';
+      }
+    } catch (erro) {
+      console.error(erro);
+    }
+  });
+
+  ws.addEventListener('error', () => {
+    clearTimeout(tempo);
+    elBolhaErro.textContent = 'Não consegui conectar, tenta de novo';
+    elBolhaErro.hidden = false;
+    elBolhaConfirmar.disabled = false;
+  });
+}
+
+elBolhaConfirmar.addEventListener('click', criarSala);
+
+carregarEu();
+carregarTemas();

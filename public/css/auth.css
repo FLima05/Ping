@@ -6,6 +6,9 @@
   --apagado: #9aa0a6;
   --azul: #1368ce;
   --vermelho: #e21b3c;
+  --amarelo: #d89e00;
+  --verde: #26890c;
+  --roxo: #864cbf;
   --radius: 20px;
   --fonte: "Poppins", "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
   --ease: cubic-bezier(0.22, 1, 0.36, 1);
@@ -24,7 +27,10 @@
 }
 
 body {
-  background: var(--fundo);
+  background:
+    radial-gradient(900px 560px at 15% -10%, rgba(19, 104, 206, 0.18), transparent 60%),
+    radial-gradient(700px 460px at 100% 110%, rgba(226, 27, 60, 0.14), transparent 55%),
+    var(--fundo);
   color: var(--texto);
   font-family: var(--fonte);
   min-height: 100dvh;
@@ -35,12 +41,26 @@ body {
 }
 
 .cartao {
+  position: relative;
   width: 100%;
   max-width: 380px;
   display: flex;
   flex-direction: column;
   gap: 14px;
   text-align: center;
+  padding-top: 14px;
+}
+
+.cartao::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 88px;
+  height: 6px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--vermelho), var(--amarelo), var(--verde), var(--azul), var(--roxo));
 }
 
 .logo {
@@ -54,6 +74,10 @@ body {
   color: var(--apagado);
   font-weight: 600;
   margin-bottom: 6px;
+}
+
+.subtitulo::before {
+  content: "🎓 ";
 }
 
 .abas {
@@ -80,7 +104,7 @@ body {
 }
 
 .aba.escolhida {
-  background: var(--azul);
+  background: linear-gradient(135deg, var(--azul), var(--roxo));
   color: #fff;
 }
 
@@ -115,6 +139,7 @@ body {
 
 .formulario input:focus {
   border-color: var(--azul);
+  box-shadow: 0 0 0 4px rgba(19, 104, 206, 0.25);
 }
 
 .botao {

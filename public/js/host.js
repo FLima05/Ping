@@ -1,7 +1,6 @@
 const letras = ['A', 'B', 'C', 'D', 'E', 'F'];
 const modoDeTimes = (modo) => modo === 'duo' || modo === 'squad';
 const rotulos = {
-  configurando: 'Criar sala',
   aguardando: 'Iniciar',
   leitura: 'Liberar respostas',
   pergunta: 'Encerrar pergunta',
@@ -14,10 +13,8 @@ const elNumero = el('numero');
 const elContagem = el('contagem');
 const elConexao = el('conexao');
 const elAbertura = el('abertura');
-const elQrBloco = el('qr-bloco');
+const elCabecalhoLobby = el('cabecalho-lobby');
 const elSala = el('sala');
-const elTemas = el('temas');
-const elModos = el('modos');
 const elTituloLobby = el('titulo-lobby');
 const elSortear = el('sortear');
 const elLobby = el('lobby');
@@ -161,9 +158,6 @@ setInterval(() => enviar({ tipo: 'ping' }), 25000);
 
 elAvancar.addEventListener('click', () => enviar({ tipo: 'proxima' }));
 elSortear.addEventListener('click', () => enviar({ tipo: 'sortear' }));
-elModos.querySelectorAll('button').forEach((botao) => {
-  botao.addEventListener('click', () => enviar({ tipo: 'modo', modo: botao.dataset.modo }));
-});
 
 /* ===================== PLACAR ===================== */
 
@@ -335,40 +329,8 @@ function desenharAlternativas(e) {
   });
 }
 
-function desenharTemas(e) {
-  elTemas.innerHTML = '';
-  e.temas.forEach((tema) => {
-    const item = document.createElement('li');
-    const botao = document.createElement('button');
-    botao.type = 'button';
-    botao.className = tema.arquivo === e.tema ? 'tema escolhido' : 'tema';
-
-    const titulo = document.createElement('span');
-    titulo.className = 'tema-titulo';
-    titulo.textContent = tema.titulo + ', ' + tema.total + ' perguntas';
-    botao.appendChild(titulo);
-
-    if (tema.descricao) {
-      const descricao = document.createElement('span');
-      descricao.className = 'tema-descricao';
-      descricao.textContent = tema.descricao;
-      botao.appendChild(descricao);
-    }
-
-    botao.addEventListener('click', () => enviar({ tipo: 'tema', arquivo: tema.arquivo }));
-    item.appendChild(botao);
-    elTemas.appendChild(item);
-  });
-}
-
-function desenharModos(e) {
-  elModos.querySelectorAll('button').forEach((botao) => {
-    botao.className = botao.dataset.modo === e.modo ? 'tema escolhido' : 'tema';
-  });
-}
-
 function desenharLobby(e) {
-  elTituloLobby.textContent = 'Na sala: ' + e.jogadores.length;
+  elTituloLobby.textContent = '👥 Na sala: ' + e.jogadores.length;
   elSortear.hidden = !modoDeTimes(e.modo);
   elLobby.innerHTML = '';
 
@@ -422,25 +384,26 @@ function desenharEquipes(lista) {
 }
 
 function desenhar(e) {
+  // tema/modo agora se escolhe no painel; sem isso feito ainda, host nao tem o que mostrar
+  if (e.estado === 'configurando') {
+    location.href = '/painel';
+    return;
+  }
+
   if (e.estado === 'pergunta') elNumero.textContent = e.tituloTema + ', pergunta ' + e.numero + ' de ' + e.total;
   else if (e.estado === 'resultado') elNumero.textContent = e.tituloTema + ', resultado ' + e.numero + ' de ' + e.total;
   else if (e.estado === 'fim') elNumero.textContent = 'Fim da partida, ' + e.tituloTema;
-  else if (e.estado === 'configurando') elNumero.textContent = 'Escolha o tema pra criar a sala';
-  else elNumero.textContent = 'Sala aberta';
+  else elNumero.textContent = '';
 
   elContagem.textContent = e.conectadosTotal + ' na sala';
 
-  elAbertura.hidden = e.estado !== 'aguardando' && e.estado !== 'configurando';
-  elQrBloco.hidden = e.estado !== 'aguardando';
+  elAbertura.hidden = e.estado !== 'aguardando';
+  elCabecalhoLobby.hidden = e.estado !== 'aguardando';
   elSala.hidden = e.estado !== 'aguardando';
-  elRodada.hidden = e.estado === 'aguardando' || e.estado === 'configurando' || e.estado === 'fim';
+  elRodada.hidden = e.estado === 'aguardando' || e.estado === 'fim';
   elSecaoPlacar.hidden = e.estado !== 'resultado' && e.estado !== 'fim';
 
-  if (e.estado === 'aguardando' || e.estado === 'configurando') {
-    desenharTemas(e);
-    desenharModos(e);
-    desenharLobby(e);
-  }
+  if (e.estado === 'aguardando') desenharLobby(e);
 
   const marcaSom = e.estado + ':' + e.numero;
   if (marcaSom !== ultimoSom) {
@@ -483,5 +446,5 @@ function desenhar(e) {
 
   elContador.textContent = e.respondidas + ' de ' + e.conectados + ' responderam';
   elAvancar.textContent = rotulos[e.estado];
-  elAvancar.disabled = (e.estado === 'aguardando' || e.estado === 'configurando') && !e.tema;
+  elAvancar.disabled = e.estado === 'aguardando' && !e.tema;
 }

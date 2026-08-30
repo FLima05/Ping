@@ -16,7 +16,14 @@
   </head>
   <body>
     <header class="barra">
-      <span id="numero">Sala aberta</span>
+      <span id="numero"></span>
+      <div id="cabecalho-lobby" class="cabecalho-lobby" hidden>
+        <img id="marca-topo" src="/img/ping-logo.png" alt="Ping" />
+        <div id="qr-bloco">
+          <img id="qr" src="/qr.svg" alt="QR code para entrar na partida" />
+          <p id="url-play"></p>
+        </div>
+      </div>
       <span class="direita">
         <span id="contagem">0 na sala</span>
         <span id="conexao"></span>
@@ -26,31 +33,8 @@
 
     <main id="palco">
       <section id="abertura">
-        <div id="qr-bloco">
-          <img id="qr" src="/qr.svg" alt="QR code para entrar na partida" />
-          <p id="url-play"></p>
-        </div>
-
-        <img id="marca" src="/img/ping-logo.png" alt="Ping" />
-
-        <div id="config">
-          <div class="config-titulo">
-            <h2>Tema</h2>
-            <a href="/criar-tema" class="criar-tema-link">+ Criar tema</a>
-          </div>
-          <ul id="temas" class="temas"></ul>
-
-          <h2>Modo</h2>
-          <div id="modos" class="modos">
-            <button type="button" class="tema" data-modo="solo">Solo</button>
-            <button type="button" class="tema" data-modo="duo">Duo</button>
-            <button type="button" class="tema" data-modo="squad">Squad</button>
-            <button type="button" class="tema" data-modo="battleroyale">Battle Royale</button>
-          </div>
-        </div>
-
         <div id="sala">
-          <h2 id="titulo-lobby">Na sala: 0</h2>
+          <h2 id="titulo-lobby">👥 Na sala: 0</h2>
           <button type="button" id="sortear" class="tema" hidden>Sortear times</button>
           <ul id="lobby" class="lobby"></ul>
         </div>

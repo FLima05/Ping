@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Ping, painel</title>
+    <link rel="icon" type="image/svg+xml" href="/img/ping-logo.svg" />
+    <link rel="icon" type="image/png" href="/img/ping-logo.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700;800;900&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/css/painel.css" />
+  </head>
+  <body>
+    <header class="barra">
+      <img src="/img/ping-logo.png" alt="Ping" class="logo-topo" />
+      <span class="direita">
+        <span id="saudacao"></span>
+        <button type="button" id="sair" class="sair">Sair</button>
+      </span>
+    </header>
+
+    <main id="palco">
+      <section class="secao">
+        <div class="secao-titulo">
+          <h2>🎯 Seus temas</h2>
+          <a href="/criar-tema">Ver todos →</a>
+        </div>
+        <div id="temas-circulos" class="temas-circulos"></div>
+      </section>
+
+      <section class="secao">
+        <div class="secao-titulo">
+          <h2>⚡ Ações rápidas</h2>
+        </div>
+        <div class="cards-acao">
+          <button type="button" id="abrir-bolha" class="card-acao card-grande">
+            <span class="card-icone">🎮</span>
+            <span class="card-texto">
+              <strong>Criar sala</strong>
+              <small>Escolhe tema e modo, projeta o QR pra turma entrar</small>
+            </span>
+          </button>
+          <a href="/criar-tema" class="card-acao card-medio">
+            <span class="card-icone">📝</span>
+            <span class="card-texto">
+              <strong>Criar tema</strong>
+              <small>Monta um banco de perguntas novo</small>
+            </span>
+          </a>
+          <a href="/criar-tema" class="card-acao card-pequeno">
+            <span class="card-icone">📚</span>
+            <span class="card-texto"><strong>Meus temas</strong></span>
+          </a>
+          <a href="/relatorio.csv" class="card-acao card-pequeno">
+            <span class="card-icone">📄</span>
+            <span class="card-texto"><strong>Último relatório</strong></span>
+          </a>
+        </div>
+      </section>
+    </main>
+
+    <div id="bolha-fundo" class="bolha-fundo" hidden>
+      <div id="bolha" class="bolha">
+        <div class="bolha-topo">
+          <strong>Criar sala</strong>
+          <button type="button" id="fechar-bolha" class="bolha-fechar">✕</button>
+        </div>
+
+        <p class="bolha-rotulo">Tema</p>
+        <div id="bolha-temas" class="temas-circulos"></div>
+
+        <p class="bolha-rotulo">Modo</p>
+        <div id="bolha-modos" class="bolha-modos">
+          <button type="button" class="bolha-modo escolhido" data-modo="solo">🧍 Solo</button>
+          <button type="button" class="bolha-modo" data-modo="duo">👥 Duo</button>
+          <button type="button" class="bolha-modo" data-modo="squad">🛡️ Squad</button>
+          <button type="button" class="bolha-modo" data-modo="battleroyale">🔥 Battle Royale</button>
+        </div>
+
+        <p id="bolha-erro" class="bolha-erro" hidden></p>
+
+        <button type="button" id="bolha-confirmar" class="botao" disabled>Criar sala</button>
+      </div>
+    </div>
+
+    <script src="/js/painel.js"></script>
+  </body>
+</html>

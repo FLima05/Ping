@@ -8,6 +8,8 @@
   --azul: #1368ce;
   --verde: #26890c;
   --vermelho: #e21b3c;
+  --amarelo: #d89e00;
+  --roxo: #864cbf;
   --radius: 16px;
   --fonte: "Poppins", "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
   --ease: cubic-bezier(0.22, 1, 0.36, 1);
@@ -26,7 +28,10 @@
 }
 
 body {
-  background: var(--fundo);
+  background:
+    radial-gradient(900px 560px at 15% -10%, rgba(19, 104, 206, 0.14), transparent 60%),
+    radial-gradient(700px 460px at 100% 0%, rgba(134, 76, 191, 0.12), transparent 55%),
+    var(--fundo);
   color: var(--texto);
   font-family: var(--fonte);
   min-height: 100dvh;
@@ -55,6 +60,10 @@ body {
 .titulo-pagina {
   font-weight: 800;
   font-size: 18px;
+}
+
+.titulo-pagina::before {
+  content: "📝 ";
 }
 
 #palco {
@@ -102,6 +111,7 @@ textarea {
 input:focus,
 textarea:focus {
   border-color: var(--azul);
+  box-shadow: 0 0 0 4px rgba(19, 104, 206, 0.25);
 }
 
 textarea {
@@ -115,12 +125,34 @@ h2 {
   margin-top: 8px;
 }
 
+#form-tema h2::before {
+  content: "❓ ";
+}
+
+#meus-temas h2::before {
+  content: "📚 ";
+}
+
 .pergunta-card {
   background: var(--superficie);
   border: 2px solid var(--borda);
+  border-left: 5px solid var(--vermelho);
   border-radius: var(--radius);
   padding: 18px;
   margin-top: 14px;
+}
+
+.pergunta-card:nth-of-type(5n + 2) {
+  border-left-color: var(--azul);
+}
+.pergunta-card:nth-of-type(5n + 3) {
+  border-left-color: var(--amarelo);
+}
+.pergunta-card:nth-of-type(5n + 4) {
+  border-left-color: var(--verde);
+}
+.pergunta-card:nth-of-type(5n + 5) {
+  border-left-color: var(--roxo);
 }
 
 .pergunta-topo {
@@ -130,10 +162,17 @@ h2 {
 }
 
 .pergunta-numero {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   font-weight: 800;
-  color: var(--apagado);
+  color: var(--texto);
   font-size: 13px;
-  text-transform: uppercase;
+}
+
+.pergunta-numero::before {
+  content: "✏️";
+  font-size: 15px;
 }
 
 .remover-pergunta {
@@ -292,9 +331,23 @@ h2 {
   padding: 14px 16px;
   background: var(--superficie-alta);
   border: 2px solid var(--borda);
+  border-left: 4px solid var(--roxo);
   border-radius: 12px;
   font-size: 14px;
   font-weight: 700;
+}
+
+#meus-temas li:nth-child(5n + 2) {
+  border-left-color: var(--vermelho);
+}
+#meus-temas li:nth-child(5n + 3) {
+  border-left-color: var(--azul);
+}
+#meus-temas li:nth-child(5n + 4) {
+  border-left-color: var(--amarelo);
+}
+#meus-temas li:nth-child(5n + 5) {
+  border-left-color: var(--verde);
 }
 
 .meu-tema-botoes {

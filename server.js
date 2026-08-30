@@ -33,9 +33,14 @@ app.use(
   })
 );
 
-app.get('/', (req, res) => res.redirect(professorDaRequisicao(req) ? '/host' : '/entrar'));
+app.get('/', (req, res) => res.redirect(professorDaRequisicao(req) ? '/painel' : '/entrar'));
 
 app.get('/entrar', (req, res) => res.sendFile(path.join(__dirname, 'public', 'entrar.html')));
+
+app.get('/painel', (req, res) => {
+  if (!professorDaRequisicao(req)) return res.redirect('/entrar');
+  res.sendFile(path.join(__dirname, 'public', 'painel.html'));
+});
 
 app.get('/host', (req, res) => {
   if (!professorDaRequisicao(req)) return res.redirect('/entrar');

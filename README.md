@@ -10,8 +10,8 @@ O Ping existe pra dar ao professor uma ferramenta de revisão de conteúdo em te
 
 ## Como funciona
 
-1. O professor faz login em `/entrar` e abre `/host`. Antes de qualquer aluno poder entrar, escolhe o tema e o modo — `Solo`, `Duo`, `Squad` ou `Battle Royale` — numa tela sem QR ainda.
-2. `Criar sala`: só a partir daqui o QR e o link passam a aceitar aluno. Quem tenta entrar antes fica esperando e cai na sala sozinho assim que ela abre.
+1. O professor faz login em `/entrar` e cai no `/painel`: seus temas em círculo, e cards de ação (`Criar sala`, `Criar tema`, `Baixar relatório`). Clicar num tema ou em `Criar sala` abre uma bolha flutuante pra escolher o tema e o modo — `Solo`, `Duo`, `Squad` ou `Battle Royale`.
+2. Escolhido tema e modo, a bolha cria a sala e manda o professor pro `/host`, já com QR e link ativos pra aluno entrar. Quem tenta entrar antes fica esperando e cai na sala sozinho assim que ela abre. `/host` sem sala criada redireciona de volta pro `/painel`.
 3. Aluno entra pelo QR, escolhe um nome e um avatar (emoji), e aparece no lobby da projeção conforme entra. Em `Duo` (duplas) ou `Squad` (grupos de 4), `Sortear times` distribui os presentes automaticamente pelo tamanho de time escolhido, e clicar no nome do aluno troca o time dele na mão.
 4. `Iniciar`: cada pergunta abre em duas fases. Primeiro só o enunciado aparece na projeção (fase de leitura, com barra de tempo proporcional ao tamanho da pergunta) — dá tempo de ler antes de sair caçando resposta. Depois as alternativas aparecem e o cronômetro de pontuação começa. O professor pode pular a leitura a qualquer momento.
 5. Antes de responder, o aluno pode apostar uma % dos pontos que já tem: acerta e ganha o valor apostado a mais, erra e perde esse valor.
@@ -28,7 +28,7 @@ No fim de cada partida o Ping gera um CSV com nome, equipe, pontos, acertos, mai
 
 ## Criar um tema
 
-Professor logado pode criar tema direto pelo app, em `/criar-tema` (tem um link "+ Criar tema" na tela de escolher tema do host): título, descrição, e quantas perguntas quiser, cada uma com enunciado, de 2 a 6 alternativas, tempo de resposta e se vale o dobro. Fica salvo no Postgres e some no seletor de tema junto com os temas padrão do Ping — visível pra qualquer professor logado na mesma instância, mas só quem criou pode editar ou excluir.
+Professor logado pode criar tema direto pelo app, em `/criar-tema` (card "Criar tema" no `/painel`): título, descrição, e quantas perguntas quiser, cada uma com enunciado, de 2 a 6 alternativas, tempo de resposta e se vale o dobro. Fica salvo no Postgres e some no seletor de tema junto com os temas padrão do Ping — visível pra qualquer professor logado na mesma instância, mas só quem criou pode editar ou excluir.
 
 ## Como colocar no ar
 
@@ -42,7 +42,7 @@ Precisa de um Postgres antes do deploy pra guardar as contas de professor (o Pos
 4. Em `Environment`, cole a connection string do passo 1 em `DATABASE_URL`.
 5. `Deploy`. Sai um endereço fixo, tipo `https://seu-ping.onrender.com`.
 
-Endereços: login em `/entrar`, projeção em `/host`, alunos em `/play` (ou só o QR da tela).
+Endereços: login em `/entrar`, painel do professor em `/painel`, projeção em `/host`, alunos em `/play` (ou só o QR da tela).
 
 Do plano gratuito do Render: o serviço dorme depois de 15 minutos sem tráfego (abra a tela do host antes da aula pra já estar acordado); reinício ou queda zera a **partida em andamento**, mas não a conta do professor, que fica salva no Postgres.
 
@@ -86,11 +86,13 @@ Ping/
 │   ├── html.json
 │   └── js.json
 └── public/
+    ├── painel.html
     ├── host.html
     ├── play.html
     ├── entrar.html
     ├── criar-tema.html
     ├── css/
+    │   ├── painel.css
     │   ├── host.css
     │   ├── play.css
     │   ├── auth.css
@@ -99,6 +101,7 @@ Ping/
     │   ├── ping-logo.png
     │   └── ping-logo.svg
     └── js/
+        ├── painel.js
         ├── host.js
         ├── play.js
         ├── auth.js
