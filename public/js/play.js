@@ -31,6 +31,9 @@ if (!id) {
   sessionStorage.setItem('ping_id', id);
 }
 
+// token secreto, separado do id; so o servidor entrega, prova posse pra reconectar sem deixar outro roubar o id
+let token = sessionStorage.getItem('ping_token') || '';
+
 let nome = sessionStorage.getItem('ping_nome') || '';
 let avatar = sessionStorage.getItem('ping_avatar') || AVATARES[0];
 let ws = null;
@@ -130,7 +133,7 @@ montarReacoes();
 
 function entrar() {
   if (ws && ws.readyState === WebSocket.OPEN && nome) {
-    ws.send(JSON.stringify({ tipo: 'entrar_jogador', id: id, nome: nome, avatar: avatar }));
+    ws.send(JSON.stringify({ tipo: 'entrar_jogador', id: id, nome: nome, avatar: avatar, token: token }));
   }
 }
 
@@ -204,6 +207,10 @@ elApostaSlider.addEventListener('input', () => {
 });
 
 function desenhar(e) {
+  if (e.token && e.token !== token) {
+    token = e.token;
+    sessionStorage.setItem('ping_token', token);
+  }
   if (tentandoEntrar) {
     clearInterval(tentandoEntrar);
     tentandoEntrar = null;

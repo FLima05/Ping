@@ -3,6 +3,9 @@ const crypto = require('crypto');
 const DURACAO_SESSAO_MS = 30 * 24 * 60 * 60 * 1000; // 30 dias
 
 // sem segredo fixo, sessao cai a cada reinicio do processo; avisa uma vez no boot
+if (!process.env.SESSAO_SEGREDO) {
+  console.warn('SESSAO_SEGREDO nao definido: usando segredo aleatorio, todas as sessoes caem no proximo restart');
+}
 const SEGREDO = process.env.SESSAO_SEGREDO || crypto.randomBytes(32).toString('hex');
 
 function assinar(base) {

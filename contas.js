@@ -4,22 +4,32 @@ const { pool } = require('./db');
 const { professorDaRequisicao, cabecalhoLogin, cabecalhoLogout } = require('./auth');
 
 const CUSTO_HASH = 10; // fator de custo do bcrypt
-const LIMITE_TENTATIVAS_LOGIN = 8; // por IP, por janela
-const JANELA_LOGIN_MS = 5 * 60 * 1000;
 
-const tentativasLogin = new Map(); // ip -> { contador, janela }
+// fabrica um limitador por IP isolado, cada rota com seu proprio balde
+function criarLimitador(limite, janelaMs) {
+  const tentativas = new Map(); // ip -> { contador, janela }
+  setInterval(() => {
+    const agora = Date.now();
+    tentativas.forEach((registro, ip) => {
+      if (agora - registro.janela > janelaMs) tentativas.delete(ip);
+    });
+  }, janelaMs).unref();
 
-function limitarLogin(ip) {
-  const agora = Date.now();
-  const registro = tentativasLogin.get(ip) || { contador: 0, janela: agora };
-  if (agora - registro.janela > JANELA_LOGIN_MS) {
-    registro.contador = 0;
-    registro.janela = agora;
-  }
-  registro.contador += 1;
-  tentativasLogin.set(ip, registro);
-  return registro.contador <= LIMITE_TENTATIVAS_LOGIN;
+  return function limitar(ip) {
+    const agora = Date.now();
+    const registro = tentativas.get(ip) || { contador: 0, janela: agora };
+    if (agora - registro.janela > janelaMs) {
+      registro.contador = 0;
+      registro.janela = agora;
+    }
+    registro.contador += 1;
+    tentativas.set(ip, registro);
+    return registro.contador <= limite;
+  };
 }
+
+const limitarLogin = criarLimitador(8, 5 * 60 * 1000); // 8 tentativas / 5 min
+const limitarCriarConta = criarLimitador(5, 10 * 60 * 1000); // 5 contas / 10 min, freia enumeracao de email
 
 function emailValido(email) {
   return typeof email === 'string' && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) && email.length <= 200;
@@ -28,6 +38,8 @@ function emailValido(email) {
 const router = express.Router();
 
 router.post('/api/criar-conta', async (req, res) => {
+  if (!limitarCriarConta(req.ip)) return res.status(429).json({ erro: 'muitas tentativas, espera um pouco' });
+
   const nome = String(req.body.nome || '').trim().slice(0, 60);
   const email = String(req.body.email || '').trim().toLowerCase();
   const senha = String(req.body.senha || '');

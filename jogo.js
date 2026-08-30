@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 const { professorDaRequisicao } = require('./auth');
 const { buscarTema, temaExiste } = require('./temas');
 
@@ -201,6 +202,7 @@ function estadoJogador(j) {
   return {
     estado: jogo.estado,
     numero: jogo.indice + 1,
+    token: j.token,
     nome: j.nome,
     avatar: j.avatar,
     equipe: j.equipe === null ? '' : jogo.equipes[j.equipe] || '',
@@ -459,6 +461,8 @@ function configurarWebSocket(wss) {
         const avatar = AVATARES.includes(msg.avatar) ? msg.avatar : AVATARES[0];
         const antigo = jogadores.get(id);
         if (antigo) {
+          // id sozinho nao prova posse (aparece pro host); token secreto e quem decide
+          if (String(msg.token || '') !== antigo.token) return;
           antigo.ws = ws; // voltou depois de cair, mantem pontos e resposta da rodada
           antigo.nome = nome;
           antigo.avatar = avatar;
@@ -466,6 +470,7 @@ function configurarWebSocket(wss) {
           if (jogadores.size >= LIMITE_JOGADORES) return; // sala cheia
           jogadores.set(id, {
             id,
+            token: crypto.randomBytes(16).toString('hex'),
             nome,
             avatar,
             equipe: null,
