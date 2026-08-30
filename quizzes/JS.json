@@ -1,5 +1,6 @@
 {
   "titulo": "JavaScript",
+  "descricao": "Sintaxe, variáveis e conceitos básicos da linguagem JavaScript.",
   "perguntas": [
     {
       "id": 1,

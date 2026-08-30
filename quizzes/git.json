@@ -1,5 +1,6 @@
 {
   "titulo": "Git",
+  "descricao": "Comandos e conceitos básicos de controle de versão com Git.",
   "perguntas": [
     {
       "id": 1,

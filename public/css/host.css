@@ -281,6 +281,40 @@ body {
   margin-top: 26px;
 }
 
+.config-titulo {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.config-titulo h2 {
+  margin-bottom: 12px;
+}
+
+.criar-tema-link {
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--azul);
+  text-decoration: none;
+}
+
+.criar-tema-link:hover {
+  text-decoration: underline;
+}
+
+.tema-titulo {
+  display: block;
+}
+
+.tema-descricao {
+  display: block;
+  margin-top: 4px;
+  font-size: 0.7em;
+  font-weight: 500;
+  color: var(--apagado);
+}
+
 .temas {
   list-style: none;
   display: grid;

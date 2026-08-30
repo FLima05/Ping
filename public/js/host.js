@@ -1,4 +1,5 @@
 const letras = ['A', 'B', 'C', 'D', 'E', 'F'];
+const modoDeTimes = (modo) => modo === 'duo' || modo === 'squad';
 const rotulos = {
   configurando: 'Criar sala',
   aguardando: 'Iniciar',
@@ -161,13 +162,7 @@ setInterval(() => enviar({ tipo: 'ping' }), 25000);
 elAvancar.addEventListener('click', () => enviar({ tipo: 'proxima' }));
 elSortear.addEventListener('click', () => enviar({ tipo: 'sortear' }));
 elModos.querySelectorAll('button').forEach((botao) => {
-  botao.addEventListener('click', () =>
-    enviar({
-      tipo: 'modo',
-      modo: botao.dataset.modo,
-      quantidade: Number(botao.dataset.quantidade) || 0
-    })
-  );
+  botao.addEventListener('click', () => enviar({ tipo: 'modo', modo: botao.dataset.modo }));
 });
 
 /* ===================== PLACAR ===================== */
@@ -347,7 +342,19 @@ function desenharTemas(e) {
     const botao = document.createElement('button');
     botao.type = 'button';
     botao.className = tema.arquivo === e.tema ? 'tema escolhido' : 'tema';
-    botao.textContent = tema.titulo + ', ' + tema.total + ' perguntas';
+
+    const titulo = document.createElement('span');
+    titulo.className = 'tema-titulo';
+    titulo.textContent = tema.titulo + ', ' + tema.total + ' perguntas';
+    botao.appendChild(titulo);
+
+    if (tema.descricao) {
+      const descricao = document.createElement('span');
+      descricao.className = 'tema-descricao';
+      descricao.textContent = tema.descricao;
+      botao.appendChild(descricao);
+    }
+
     botao.addEventListener('click', () => enviar({ tipo: 'tema', arquivo: tema.arquivo }));
     item.appendChild(botao);
     elTemas.appendChild(item);
@@ -356,19 +363,13 @@ function desenharTemas(e) {
 
 function desenharModos(e) {
   elModos.querySelectorAll('button').forEach((botao) => {
-    const escolhido =
-      (botao.dataset.modo === 'individual' && e.modo === 'individual') ||
-      (botao.dataset.modo === 'sobrevivencia' && e.modo === 'sobrevivencia') ||
-      (botao.dataset.modo === 'equipes' &&
-        e.modo === 'equipes' &&
-        Number(botao.dataset.quantidade) === e.equipes.length);
-    botao.className = escolhido ? 'tema escolhido' : 'tema';
+    botao.className = botao.dataset.modo === e.modo ? 'tema escolhido' : 'tema';
   });
 }
 
 function desenharLobby(e) {
   elTituloLobby.textContent = 'Na sala: ' + e.jogadores.length;
-  elSortear.hidden = e.modo !== 'equipes';
+  elSortear.hidden = !modoDeTimes(e.modo);
   elLobby.innerHTML = '';
 
   e.jogadores.forEach((jogador) => {
@@ -384,11 +385,11 @@ function desenharLobby(e) {
     nome.textContent = jogador.nome;
     item.appendChild(nome);
 
-    if (e.modo === 'equipes') {
+    if (modoDeTimes(e.modo)) {
       const botao = document.createElement('button');
       botao.type = 'button';
       botao.className = 'equipe-botao';
-      botao.textContent = jogador.equipe === null ? 'sem equipe' : e.equipes[jogador.equipe];
+      botao.textContent = jogador.equipe === null ? 'sem time' : e.equipes[jogador.equipe];
       botao.addEventListener('click', () => {
         // clique passa pra proxima equipe e volta pra sem equipe no fim da volta
         const proxima = jogador.equipe === null ? 0 : jogador.equipe + 1;
@@ -456,7 +457,7 @@ function desenhar(e) {
     elRapido.textContent = e.maisRapido ? 'Respondeu certo primeiro: ' + e.maisRapido : '';
   }
 
-  elPlacarEquipes.hidden = e.modo !== 'equipes' || elSecaoPlacar.hidden;
+  elPlacarEquipes.hidden = !modoDeTimes(e.modo) || elSecaoPlacar.hidden;
   if (!elPlacarEquipes.hidden) desenharEquipes(e.equipesPlacar);
 
   const marca = e.estado + e.numero;

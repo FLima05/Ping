@@ -28,24 +28,46 @@ Contribuições bem-vindas! Ping é feito pela comunidade, pra comunidade.
 
 ### Adicionar novo tema
 
-Cria arquivo em `themes/seu-tema.json`:
+Duas formas de criar tema: pelo app, em `/criar-tema` (uso na sua própria instância, não precisa de PR); ou direto no repositório, do jeito abaixo, quando o tema é bom o bastante pra virar padrão pra todo mundo.
+
+Cada tema é um arquivo JSON dentro de `quizzes/`. Cria o arquivo, roda o Ping localmente pra conferir que carregou sem erro, e abre PR.
+
+`quizzes/algoritmos.json`:
 
 ```json
 {
-  "name": "Python",
-  "questions": [
+  "titulo": "Algoritmos",
+  "descricao": "Lacos, condicionais e logica basica de programacao.",
+  "perguntas": [
     {
       "id": 1,
-      "text": "Pergunta aqui?",
-      "options": ["Opção A", "Opção B", "Opção C"],
-      "correct": 0,
-      "time": 15
+      "enunciado": "O que um laco de repeticao faz?",
+      "alternativas": [
+        "Executa um bloco varias vezes",
+        "Declara uma variavel",
+        "Encerra o programa",
+        "Importa uma biblioteca"
+      ],
+      "correta": 0,
+      "tempo": 20,
+      "dobro": false
     }
   ]
 }
 ```
 
-Push e abre PR. Sistema carrega automático.
+Campos:
+
+- `titulo`: nome que aparece na lista de temas
+- `descricao`: opcional, aparece embaixo do título na tela de escolher tema
+- `id`: número único dentro do arquivo
+- `enunciado`: a pergunta
+- `alternativas`: de 2 a 6 opções
+- `correta`: índice da alternativa certa, começando em 0
+- `tempo`: segundos usados como referência da pontuação por rapidez
+- `dobro`: opcional, faz a pergunta valer o dobro
+
+O Ping valida os temas ao iniciar. Arquivo com erro é reportado linha a linha no terminal e ignorado, sem derrubar os outros. Tema pronto e revisado é a contribuição mais útil pro projeto agora.
 
 ## Código de Conduta
 

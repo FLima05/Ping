@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Ping, criar tema</title>
+    <link rel="icon" type="image/svg+xml" href="/img/ping-logo.svg" />
+    <link rel="icon" type="image/png" href="/img/ping-logo.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700;800;900&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/css/criar-tema.css" />
+  </head>
+  <body>
+    <header class="barra">
+      <a href="/host" class="voltar">← Voltar pro host</a>
+      <span class="titulo-pagina">Criar tema</span>
+    </header>
+
+    <main id="palco">
+      <form id="form-tema">
+        <input type="hidden" id="tema-id" value="" />
+
+        <label for="tema-titulo">Título do tema</label>
+        <input id="tema-titulo" maxlength="80" placeholder="Ex: Revisão de frações" required />
+
+        <label for="tema-descricao">Descrição (opcional)</label>
+        <textarea id="tema-descricao" maxlength="200" placeholder="Uma linha explicando o tema pros alunos"></textarea>
+
+        <h2>Perguntas</h2>
+        <div id="perguntas"></div>
+        <button type="button" id="adicionar-pergunta" class="botao-secundario">+ Adicionar pergunta</button>
+
+        <p id="erro-tema" class="erro" hidden></p>
+
+        <div class="acoes-form">
+          <button type="submit" class="botao">Salvar tema</button>
+          <button type="button" id="cancelar-edicao" class="botao-secundario" hidden>Cancelar edição</button>
+        </div>
+      </form>
+
+      <section id="meus-temas">
+        <h2>Meus temas</h2>
+        <ul id="lista-temas"></ul>
+      </section>
+    </main>
+
+    <template id="modelo-pergunta">
+      <div class="pergunta-card">
+        <div class="pergunta-topo">
+          <span class="pergunta-numero"></span>
+          <button type="button" class="remover-pergunta">Remover</button>
+        </div>
+        <label>Enunciado</label>
+        <input type="text" class="campo-enunciado" maxlength="200" required />
+
+        <label>Alternativas (marque a correta)</label>
+        <div class="alternativas-lista"></div>
+        <div class="alternativas-botoes">
+          <button type="button" class="add-alternativa">+ alternativa</button>
+          <button type="button" class="rem-alternativa">- alternativa</button>
+        </div>
+
+        <div class="pergunta-opcoes">
+          <label class="campo-tempo-label">
+            Tempo (segundos)
+            <input type="number" class="campo-tempo" min="5" max="120" value="20" required />
+          </label>
+          <label class="campo-dobro-label">
+            <input type="checkbox" class="campo-dobro" />
+            Vale o dobro
+          </label>
+        </div>
+      </div>
+    </template>
+
+    <template id="modelo-alternativa">
+      <div class="alternativa-linha">
+        <input type="radio" class="alternativa-correta" />
+        <input type="text" class="alternativa-texto" maxlength="120" required />
+      </div>
+    </template>
+
+    <script src="/js/criar-tema.js"></script>
+  </body>
+</html>

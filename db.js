@@ -16,6 +16,17 @@ async function migrar() {
       criado_em TIMESTAMPTZ NOT NULL DEFAULT now()
     )
   `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS temas (
+      id SERIAL PRIMARY KEY,
+      titulo TEXT NOT NULL,
+      descricao TEXT NOT NULL DEFAULT '',
+      perguntas JSONB NOT NULL,
+      criado_por INTEGER REFERENCES professores(id) ON DELETE SET NULL,
+      criado_em TIMESTAMPTZ NOT NULL DEFAULT now()
+    )
+  `);
 }
 
 module.exports = { pool, migrar };

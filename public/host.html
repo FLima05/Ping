@@ -34,22 +34,24 @@
         <img id="marca" src="/img/ping-logo.png" alt="Ping" />
 
         <div id="config">
-          <h2>Tema</h2>
+          <div class="config-titulo">
+            <h2>Tema</h2>
+            <a href="/criar-tema" class="criar-tema-link">+ Criar tema</a>
+          </div>
           <ul id="temas" class="temas"></ul>
 
           <h2>Modo</h2>
           <div id="modos" class="modos">
-            <button type="button" class="tema" data-modo="individual">Individual</button>
-            <button type="button" class="tema" data-modo="equipes" data-quantidade="2">2 equipes</button>
-            <button type="button" class="tema" data-modo="equipes" data-quantidade="3">3 equipes</button>
-            <button type="button" class="tema" data-modo="equipes" data-quantidade="4">4 equipes</button>
-            <button type="button" class="tema" data-modo="sobrevivencia">Sobrevivência</button>
+            <button type="button" class="tema" data-modo="solo">Solo</button>
+            <button type="button" class="tema" data-modo="duo">Duo</button>
+            <button type="button" class="tema" data-modo="squad">Squad</button>
+            <button type="button" class="tema" data-modo="battleroyale">Battle Royale</button>
           </div>
         </div>
 
         <div id="sala">
           <h2 id="titulo-lobby">Na sala: 0</h2>
-          <button type="button" id="sortear" class="tema" hidden>Sortear equipes</button>
+          <button type="button" id="sortear" class="tema" hidden>Sortear times</button>
           <ul id="lobby" class="lobby"></ul>
         </div>
       </section>

@@ -1,117 +1,64 @@
 # Ping
 
-Quiz ao vivo para sala de aula. O professor projeta a tela do host, os alunos entram pelo celular lendo um QR code e respondem em botões grandes. Acerto pontua, quem responde mais rápido pontua mais.
+Quiz ao vivo para sala de aula. O professor projeta a tela do host, os alunos entram pelo celular lendo um QR code e respondem em botões grandes e coloridos. Acerto pontua, quem responde mais rápido pontua mais.
 
-Alternativa livre ao Kahoot, sem conta, sem licença e sem limite de participantes.
+Alternativa livre ao Kahoot: sem licença paga, sem limite de participantes. O aluno entra sem conta, só com nome e avatar; o professor precisa de login pra abrir a sala.
+
+## Finalidade
+
+O Ping existe pra dar ao professor uma ferramenta de revisão de conteúdo em tempo real, com toda a turma participando ao mesmo tempo pelo próprio celular, sem depender de plataforma paga ou de criar conta pra cada aluno. A ideia é o professor escolher um tema de perguntas, projetar a tela pra turma toda ver, e conduzir a dinâmica: quem acerta primeiro pontua mais, o placar anima em tempo real, e no fim sai um pódio e um relatório da partida.
+
+## Como funciona
+
+1. O professor faz login em `/entrar` e abre `/host`. Antes de qualquer aluno poder entrar, escolhe o tema e o modo — `Solo`, `Duo`, `Squad` ou `Battle Royale` — numa tela sem QR ainda.
+2. `Criar sala`: só a partir daqui o QR e o link passam a aceitar aluno. Quem tenta entrar antes fica esperando e cai na sala sozinho assim que ela abre.
+3. Aluno entra pelo QR, escolhe um nome e um avatar (emoji), e aparece no lobby da projeção conforme entra. Em `Duo` (duplas) ou `Squad` (grupos de 4), `Sortear times` distribui os presentes automaticamente pelo tamanho de time escolhido, e clicar no nome do aluno troca o time dele na mão.
+4. `Iniciar`: cada pergunta abre em duas fases. Primeiro só o enunciado aparece na projeção (fase de leitura, com barra de tempo proporcional ao tamanho da pergunta) — dá tempo de ler antes de sair caçando resposta. Depois as alternativas aparecem e o cronômetro de pontuação começa. O professor pode pular a leitura a qualquer momento.
+5. Antes de responder, o aluno pode apostar uma % dos pontos que já tem: acerta e ganha o valor apostado a mais, erra e perde esse valor.
+6. A pergunta fecha quando todos que estavam na sala responderem, ou o professor encerra antes pelo botão. Em `Battle Royale`, quem errou ou não respondeu sai da rodada e só acompanha o resto da partida.
+7. `Resultado`: aparece a alternativa correta, quantos marcaram cada opção, quem acertou primeiro, e o placar anima os pontos e a troca de posições. A projeção mostra o top 3 com avatar e emblema de sequência.
+8. A qualquer momento o aluno pode mandar uma reação (emoji), que flutua na tela da projeção.
+9. `Próxima pergunta` até acabar o tema. No fim, o pódio é revelado do terceiro para o primeiro, junto com a pergunta que mais derrubou a turma e o link pra baixar o relatório. `Recomeçar` zera os pontos e libera trocar de tema, sem fechar a sala.
+
+Pontuação: acerto vale de 500 a 1000 pontos, caindo conforme a fração do tempo gasta. Pergunta marcada como `dobro` vale o dobro. Acertos seguidos rendem um emblema de sequência (🔥) na tela, mas não multiplicam mais pontos — isso evita que quem acerta tudo dispare sozinho no placar.
+
+## Relatório da partida
+
+No fim de cada partida o Ping gera um CSV com nome, equipe, pontos, acertos, maior sequência e o resultado de cada pergunta (`C` certo, `X` errado, `-` sem resposta), mais qual pergunta mais derrubou a turma. Fica em `relatorios/` na máquina que roda o servidor, e também pode ser baixado pelo link na tela do host. Tem nome de aluno, então é seu — a pasta já está no `.gitignore` pra não subir pro GitHub sem querer.
+
+## Criar um tema
+
+Professor logado pode criar tema direto pelo app, em `/criar-tema` (tem um link "+ Criar tema" na tela de escolher tema do host): título, descrição, e quantas perguntas quiser, cada uma com enunciado, de 2 a 6 alternativas, tempo de resposta e se vale o dobro. Fica salvo no Postgres e some no seletor de tema junto com os temas padrão do Ping — visível pra qualquer professor logado na mesma instância, mas só quem criou pode editar ou excluir.
 
 ## Como colocar no ar
 
-O Ping roda hospedado no Render, sempre. Não existe mais modo local com detecção de IP de rede ou túnel: essas duas formas geravam problema de rede diferente em cada escola e não valiam a complexidade. Uma instância na nuvem resolve pra qualquer rede, inclusive as que bloqueiam tráfego entre aparelhos.
+Quem sobe a instância no Render é o professor (ou quem for administrar a turma) — cada instância atende uma turma por vez, com sua própria conta de login.
 
-A tela do host agora exige login de professor (cadastro simples, com email e senha, guardado num Postgres). Isso substituiu a antiga `CHAVE_HOST` na URL.
+Precisa de um Postgres antes do deploy pra guardar as contas de professor (o Postgres do próprio Render expira em 30 dias no plano grátis, então use um separado que não expira):
 
-Precisa de um banco Postgres antes de fazer o deploy. O do próprio Render expira em 30 dias no plano grátis, então use um separado que não expira:
+1. Crie um projeto grátis em [neon.tech](https://neon.tech) ou [supabase.com](https://supabase.com) e copie a connection string (Neon: botão `Connect` → `Direct connection`).
+2. Faça um fork deste repositório.
+3. Em `render.com`, `New` → `Web Service`, escolha o fork. Com o `render.yaml` do repositório, Runtime/Build/Start Command e a `SESSAO_SEGREDO` já vêm preenchidos sozinhos.
+4. Em `Environment`, cole a connection string do passo 1 em `DATABASE_URL`.
+5. `Deploy`. Sai um endereço fixo, tipo `https://seu-ping.onrender.com`.
 
-1. Crie um projeto grátis em [neon.tech](https://neon.tech) ou [supabase.com](https://supabase.com).
-2. Copie a connection string (Neon: botão `Connect`, escolha `Direct connection`).
+Endereços: login em `/entrar`, projeção em `/host`, alunos em `/play` (ou só o QR da tela).
 
-Com o banco pronto:
+Do plano gratuito do Render: o serviço dorme depois de 15 minutos sem tráfego (abra a tela do host antes da aula pra já estar acordado); reinício ou queda zera a **partida em andamento**, mas não a conta do professor, que fica salva no Postgres.
 
-3. Faça um fork deste repositório.
-4. Entre em `render.com` com a conta do GitHub.
-5. `New`, `Web Service`, escolha o fork. Com o `render.yaml` do repositório, o Render já preenche Runtime, Build e Start Command sozinho, e gera a `SESSAO_SEGREDO` automaticamente.
-6. Em `Environment`, cole a connection string do passo 2 em `DATABASE_URL`.
-7. `Deploy`. Sai um endereço fixo, tipo `https://seu-ping.onrender.com`.
-
-Cada professor sobe a própria instância. Isso é importante: o Ping guarda a partida em andamento na memória e atende **uma turma por vez**. Duas turmas na mesma instância disputam o mesmo placar. Contas de professor, por outro lado, ficam no Postgres e sobrevivem a reinício e deploy.
-
-Endereços:
-
-- Login: `https://seu-ping.onrender.com/entrar`
-- Projeção: `https://seu-ping.onrender.com/host`
-- Alunos: `https://seu-ping.onrender.com/play`, ou só o QR da tela
-
-O que esperar do plano gratuito:
-
-- O serviço dorme depois de 15 minutos sem tráfego e leva perto de um minuto para acordar. Abra a tela do host antes de a aula começar.
-- Uma instância só, sem escala. Não ligue instância extra, senão cada aluno cai numa partida diferente.
-- Reinício ou queda zera a **partida em andamento**, mas não a conta do professor nem o histórico salvo no banco.
-- O relatório salvo em disco some no próximo deploy, mas o botão de baixar continua funcionando enquanto a partida estiver na memória.
-
-## Desenvolvimento local
-
-Pra contribuir com código ou testar mudança antes de subir pro Render:
+Pra rodar localmente (testar antes de subir):
 
 ```bash
 git clone https://github.com/i-barbosa/Ping.git
 cd Ping
 npm install
+cp .env.example .env   # preenche DATABASE_URL com o mesmo Postgres do passo 1
 npm start
 ```
 
-Abre em `http://localhost:3000`. Isso é só pra desenvolvimento — pra usar em aula de verdade, hospede no Render (acima). Não existe mais modo de rede local com QR apontando pro IP da máquina.
+Abre em `http://localhost:3000`. Sem `DATABASE_URL` o servidor nem sobe.
 
-## Como funciona a partida
-
-1. `Sala aberta`: o professor escolhe o tema e o modo, individual ou em equipes. Os alunos entram pelo QR e digitam o nome, aparecendo na tela conforme entram.
-2. Em modo equipes, `Sortear equipes` distribui os presentes, e clicar no nome do aluno troca a equipe dele na mão.
-3. `Iniciar`: abre a primeira pergunta. O enunciado fica na projeção, o celular mostra só as alternativas.
-4. A pergunta fecha quando todos que estavam na sala responderem. O professor pode encerrar antes pelo botão.
-5. `Resultado`: aparece a alternativa correta, quantos marcaram cada opção, quem acertou primeiro, e o placar anima os pontos e a troca de posições. A projeção mostra o top 3.
-6. `Próxima pergunta` até acabar o tema. No fim, o pódio é revelado do terceiro para o primeiro, com link para baixar o relatório. `Recomeçar` zera e libera trocar de tema.
-
-Pontuação: acerto vale de 500 a 1000 pontos, caindo conforme a fração do tempo gasta. Pergunta marcada como `dobro` vale o dobro. Acertos seguidos rendem um emblema de sequência na tela, mas não multiplicam mais pontos. Jogador pode apostar uma % dos pontos atuais antes de responder: acerta e ganha o valor apostado a mais, erra e perde.
-
-## Relatório da partida
-
-No fim de cada partida o Ping gera um CSV com nome, equipe, pontos, acertos, maior sequência e o resultado de cada pergunta, marcado como `C` para certo, `X` para errado e `-` para sem resposta.
-
-O arquivo fica em `relatorios/` na máquina que roda o servidor, e também pode ser baixado pelo link que aparece na tela do host.
-
-O relatório tem nome de aluno. Ele é seu, fica com você, e é você quem decide o que fazer com ele. A pasta `relatorios/` já está no `.gitignore` para não subir para o GitHub sem querer.
-
-## Criar um tema novo
-
-Cada tema é um arquivo JSON dentro de `quizzes/`. Crie o arquivo, reinicie o Ping e ele aparece sozinho na tela de abertura.
-
-`quizzes/algoritmos.json`:
-
-```json
-{
-  "titulo": "Algoritmos",
-  "perguntas": [
-    {
-      "id": 1,
-      "enunciado": "O que um laco de repeticao faz?",
-      "alternativas": [
-        "Executa um bloco varias vezes",
-        "Declara uma variavel",
-        "Encerra o programa",
-        "Importa uma biblioteca"
-      ],
-      "correta": 0,
-      "tempo": 20,
-      "dobro": false
-    }
-  ]
-}
-```
-
-Campos:
-
-- `titulo`: nome que aparece na lista de temas
-- `id`: número único dentro do arquivo
-- `enunciado`: a pergunta
-- `alternativas`: de 2 a 6 opções
-- `correta`: índice da alternativa certa, começando em 0
-- `tempo`: segundos usados como referência da pontuação por rapidez
-- `dobro`: opcional, faz a pergunta valer o dobro
-
-O Ping valida os temas ao iniciar. Arquivo com erro é reportado linha a linha no terminal e ignorado, sem derrubar os outros.
-
-Tema pronto e revisado é a contribuição mais útil para o projeto. Veja `CONTRIBUTING.md`.
-
-## Variáveis de ambiente
+### Variáveis de ambiente
 
 | Variável | Para que serve | Padrão |
 | --- | --- | --- |
@@ -128,6 +75,9 @@ Ping/
 ├── .env.example
 ├── db.js
 ├── auth.js
+├── contas.js
+├── temas.js
+├── jogo.js
 ├── server.js
 ├── quizzes/
 │   ├── c.json
@@ -139,30 +89,44 @@ Ping/
     ├── host.html
     ├── play.html
     ├── entrar.html
+    ├── criar-tema.html
     ├── css/
     │   ├── host.css
     │   ├── play.css
-    │   └── auth.css
+    │   ├── auth.css
+    │   └── criar-tema.css
     ├── img/
     │   ├── ping-logo.png
     │   └── ping-logo.svg
     └── js/
         ├── host.js
         ├── play.js
-        └── auth.js
+        ├── auth.js
+        └── criar-tema.js
 ```
+
+`server.js` só faz o bootstrap (Express, WebSocket, boot); a lógica fica separada por assunto: `contas.js` (login/cadastro), `temas.js` (banco de perguntas, arquivo e Postgres) e `jogo.js` (estado da partida e toda a troca de mensagens por WebSocket).
 
 Stack: Node com Express, WebSocket pela biblioteca `ws`, Postgres pela `pg`, senha com `bcryptjs`, front em HTML, CSS e JavaScript puro. Sem framework e sem etapa de build.
 
 ## Limitações conhecidas
 
-- Uma sala por instância, sem PIN
-- A partida em si não é salva em banco, o placar vive na memória do servidor. Só a conta do professor fica no Postgres
+- Uma sala por instância, sem PIN pra várias salas simultâneas
+- A partida em si não é salva em banco, o placar vive na memória do servidor
+- Aluno não tem conta: pontuação e rank não persistem de uma partida pra outra
 - Empate não tem critério de desempate
-- Não existe tela para criar ou editar perguntas, a edição é no arquivo JSON
+- Tema criado por um professor fica visível pra qualquer professor logado na mesma instância, não só pra quem criou
 - Perguntas e alternativas não são embaralhadas entre turmas
 
+## Próximos passos
+
+- **Multi-sala**: várias salas simultâneas na mesma instância, cada uma com seu PIN, ao invés de uma sala global por deploy
+- **Conta de aluno**: login simples (usuário e senha, sem email) pra manter identidade entre partidas
+- **Rank global**: contagem de salas vencidas (1º lugar) por aluno, persistindo no mesmo Postgres das contas de professor
+
 ## Contribuir
+
+Criar tema pelo app (acima) é pra uso na sua própria instância. Já contribuir um tema pro repositório — via PR, documentado em `CONTRIBUTING.md` — é diferente: passa por revisão antes de virar padrão, e todo mundo que clonar o Ping ganha o tema pronto, sem precisar recriar nada. As duas formas convivem: uma resolve o uso imediato, a outra melhora o projeto pra quem vem depois.
 
 Leia `CONTRIBUTING.md`. Banco de perguntas revisado, correção de texto e melhoria de acessibilidade são as contribuições mais úteis agora.
 

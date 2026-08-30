@@ -1,5 +1,6 @@
 {
   "titulo": "Linguagem C - Avançado",
+  "descricao": "Ponteiros, memória, funções e sintaxe do C pra quem já passou do básico.",
   "perguntas": [
     {
       "id": 1,
