@@ -5,7 +5,7 @@ const path = require('path');
 const express = require('express');
 const QRCode = require('qrcode');
 const { WebSocketServer } = require('ws');
-const { migrar } = require('./db');
+const { migrar, ehAdmin } = require('./db');
 const { professorDaRequisicao } = require('./auth');
 const contas = require('./contas');
 const temas = require('./temas');
@@ -50,6 +50,13 @@ app.get('/host', (req, res) => {
 app.get('/criar-tema', (req, res) => {
   if (!professorDaRequisicao(req)) return res.redirect('/entrar');
   res.sendFile(path.join(__dirname, 'public', 'criar-tema.html'));
+});
+
+app.get('/admin', async (req, res) => {
+  const professorId = professorDaRequisicao(req);
+  if (!professorId) return res.redirect('/entrar');
+  if (!(await ehAdmin(professorId))) return res.redirect('/painel');
+  res.sendFile(path.join(__dirname, 'public', 'admin.html'));
 });
 
 app.get('/play', (req, res) => res.sendFile(path.join(__dirname, 'public', 'play.html')));

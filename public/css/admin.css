@@ -1,0 +1,177 @@
+:root {
+  --fundo: #0b0b0d;
+  --superficie: #1a1a1f;
+  --superficie-alta: #232329;
+  --borda: #2e2e35;
+  --texto: #ffffff;
+  --apagado: #9aa0a6;
+  --azul: #1368ce;
+  --verde: #26890c;
+  --vermelho: #e21b3c;
+  --amarelo: #d89e00;
+  --roxo: #864cbf;
+  --radius: 16px;
+  --fonte: "Poppins", "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
+  --ease: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+[hidden] {
+  display: none !important;
+}
+
+body {
+  background:
+    radial-gradient(900px 560px at 15% -10%, rgba(226, 27, 60, 0.14), transparent 60%),
+    radial-gradient(700px 460px at 100% 0%, rgba(19, 104, 206, 0.12), transparent 55%),
+    var(--fundo);
+  color: var(--texto);
+  font-family: var(--fonte);
+  min-height: 100dvh;
+}
+
+.barra {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 16px 24px;
+  background: #080808;
+  border-bottom: 1px solid var(--borda);
+}
+
+.voltar {
+  color: var(--apagado);
+  text-decoration: none;
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.voltar:hover {
+  color: var(--texto);
+}
+
+.titulo-pagina {
+  font-weight: 800;
+  font-size: 18px;
+}
+
+#palco {
+  max-width: 860px;
+  margin: 0 auto;
+  padding: 28px 20px 80px;
+}
+
+.vazio {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--apagado);
+  padding: 40px 0;
+  text-align: center;
+}
+
+.lista-pendentes {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.tema-pendente {
+  background: var(--superficie);
+  border: 2px solid var(--borda);
+  border-left: 5px solid var(--amarelo);
+  border-radius: var(--radius);
+  padding: 18px 20px;
+}
+
+.pendente-topo {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.pendente-titulo {
+  display: block;
+  font-size: 17px;
+  font-weight: 800;
+}
+
+.pendente-meta {
+  display: block;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--apagado);
+  margin-top: 4px;
+}
+
+.pendente-descricao {
+  margin-top: 12px;
+  font-size: 14px;
+  color: var(--apagado);
+  font-weight: 600;
+}
+
+.pendente-botoes {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.pendente-botoes button {
+  font-family: inherit;
+  font-weight: 800;
+  font-size: 13px;
+  padding: 8px 16px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: transform 0.1s var(--ease);
+}
+
+.pendente-botoes button:active {
+  transform: translateY(2px);
+}
+
+.ver-perguntas {
+  background: transparent;
+  color: var(--texto);
+  border: 2px solid var(--borda);
+}
+
+.ver-perguntas:hover {
+  border-color: #555;
+}
+
+.aprovar {
+  background: var(--verde);
+  color: #fff;
+  border: none;
+}
+
+.rejeitar {
+  background: transparent;
+  color: var(--vermelho);
+  border: 2px solid #4a2530;
+}
+
+.pendente-perguntas {
+  list-style: decimal;
+  margin: 14px 0 0 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.pendente-perguntas li {
+  font-size: 13px;
+  color: var(--texto);
+  font-weight: 600;
+}

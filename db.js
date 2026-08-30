@@ -13,9 +13,11 @@ async function migrar() {
       email TEXT UNIQUE NOT NULL,
       nome TEXT NOT NULL,
       senha_hash TEXT NOT NULL,
+      admin BOOLEAN NOT NULL DEFAULT false,
       criado_em TIMESTAMPTZ NOT NULL DEFAULT now()
     )
   `);
+  await pool.query(`ALTER TABLE professores ADD COLUMN IF NOT EXISTS admin BOOLEAN NOT NULL DEFAULT false`);
 
   await pool.query(`
     CREATE TABLE IF NOT EXISTS temas (
@@ -24,9 +26,17 @@ async function migrar() {
       descricao TEXT NOT NULL DEFAULT '',
       perguntas JSONB NOT NULL,
       criado_por INTEGER REFERENCES professores(id) ON DELETE SET NULL,
+      status TEXT NOT NULL DEFAULT 'pendente',
       criado_em TIMESTAMPTZ NOT NULL DEFAULT now()
     )
   `);
+  await pool.query(`ALTER TABLE temas ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'pendente'`);
 }
 
-module.exports = { pool, migrar };
+async function ehAdmin(professorId) {
+  if (!professorId) return false;
+  const resultado = await pool.query('SELECT admin FROM professores WHERE id = $1', [professorId]);
+  return resultado.rows.length > 0 && resultado.rows[0].admin === true;
+}
+
+module.exports = { pool, migrar, ehAdmin };

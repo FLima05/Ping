@@ -304,6 +304,13 @@ h2 {
   margin-top: 20px;
 }
 
+.aviso-revisao {
+  margin-top: 10px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--apagado);
+}
+
 .erro {
   margin-top: 14px;
   font-size: 13px;
@@ -348,6 +355,16 @@ h2 {
 }
 #meus-temas li:nth-child(5n + 5) {
   border-left-color: var(--verde);
+}
+
+#meus-temas li.status-pendente {
+  border-left-color: var(--amarelo);
+}
+#meus-temas li.status-aprovado {
+  border-left-color: var(--verde);
+}
+#meus-temas li.status-rejeitado {
+  border-left-color: var(--vermelho);
 }
 
 .meu-tema-botoes {

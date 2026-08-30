@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Ping, admin</title>
+    <link rel="icon" type="image/svg+xml" href="/img/ping-logo.svg" />
+    <link rel="icon" type="image/png" href="/img/ping-logo.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700;800;900&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/css/admin.css" />
+  </head>
+  <body>
+    <header class="barra">
+      <a href="/painel" class="voltar">← Voltar pro painel</a>
+      <span class="titulo-pagina">🛡️ Moderação de temas</span>
+    </header>
+
+    <main id="palco">
+      <p id="vazio" class="vazio" hidden>Nenhum tema esperando revisão.</p>
+      <ul id="lista-pendentes" class="lista-pendentes"></ul>
+    </main>
+
+    <template id="modelo-pendente">
+      <li class="tema-pendente">
+        <div class="pendente-topo">
+          <div>
+            <strong class="pendente-titulo"></strong>
+            <span class="pendente-meta"></span>
+          </div>
+          <div class="pendente-botoes">
+            <button type="button" class="ver-perguntas">Ver perguntas</button>
+            <button type="button" class="rejeitar">Rejeitar</button>
+            <button type="button" class="aprovar">Aprovar</button>
+          </div>
+        </div>
+        <p class="pendente-descricao"></p>
+        <ol class="pendente-perguntas" hidden></ol>
+      </li>
+    </template>
+
+    <script src="/js/admin.js"></script>
+  </body>
+</html>

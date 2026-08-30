@@ -80,7 +80,7 @@ router.get('/api/eu', async (req, res) => {
   const id = professorDaRequisicao(req);
   if (!id) return res.status(401).json({ erro: 'sem sessao' });
   try {
-    const resultado = await pool.query('SELECT id, nome, email FROM professores WHERE id = $1', [id]);
+    const resultado = await pool.query('SELECT id, nome, email, admin FROM professores WHERE id = $1', [id]);
     if (resultado.rows.length === 0) return res.status(401).json({ erro: 'sem sessao' });
     res.json(resultado.rows[0]);
   } catch (erro) {

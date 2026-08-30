@@ -28,7 +28,17 @@ No fim de cada partida o Ping gera um CSV com nome, equipe, pontos, acertos, mai
 
 ## Criar um tema
 
-Professor logado pode criar tema direto pelo app, em `/criar-tema` (card "Criar tema" no `/painel`): título, descrição, e quantas perguntas quiser, cada uma com enunciado, de 2 a 6 alternativas, tempo de resposta e se vale o dobro. Fica salvo no Postgres e some no seletor de tema junto com os temas padrão do Ping — visível pra qualquer professor logado na mesma instância, mas só quem criou pode editar ou excluir.
+Professor logado pode criar tema direto pelo app, em `/criar-tema` (card "Criar tema" no `/painel`): título, descrição, e quantas perguntas quiser, cada uma com enunciado, de 2 a 6 alternativas, tempo de resposta e se vale o dobro. Fica salvo no Postgres como **pendente**, mas já dá pra usar na hora: quem criou vê o próprio tema pendente (com um selo ⏳) no `/painel` e consegue criar sala com ele normalmente, só que só ele — pra qualquer outro professor da instância ver e usar esse tema, precisa passar pela aprovação de um admin primeiro. Quem criou acompanha o status (`⏳ Em revisão`, `✅ Aprovado`, `❌ Rejeitado`) na lista "Meus temas" da mesma página, e pode editar ou excluir o que é seu a qualquer momento — editar manda de volta pra revisão, mesmo se já estava aprovado. Tema rejeitado para de funcionar até ser corrigido e reenviado.
+
+### Admin
+
+Quem tem a flag `admin` na conta vê o card "Moderar temas" no `/painel` e a página `/admin`: lista todo tema pendente de qualquer professor, com botão pra ver as perguntas, aprovar ou rejeitar. Nenhuma conta nasce admin — a primeira precisa ser promovida direto no Postgres:
+
+```sql
+UPDATE professores SET admin = true WHERE email = 'seu-email@exemplo.com';
+```
+
+Dali em diante quem já é admin pode continuar administrando só pela UI, sem precisar voltar no banco.
 
 ## Como colocar no ar
 
@@ -42,7 +52,7 @@ Precisa de um Postgres antes do deploy pra guardar as contas de professor (o Pos
 4. Em `Environment`, cole a connection string do passo 1 em `DATABASE_URL`.
 5. `Deploy`. Sai um endereço fixo, tipo `https://seu-ping.onrender.com`.
 
-Endereços: login em `/entrar`, painel do professor em `/painel`, projeção em `/host`, alunos em `/play` (ou só o QR da tela).
+Endereços: login em `/entrar`, painel do professor em `/painel`, moderação (admin) em `/admin`, projeção em `/host`, alunos em `/play` (ou só o QR da tela).
 
 Do plano gratuito do Render: o serviço dorme depois de 15 minutos sem tráfego (abra a tela do host antes da aula pra já estar acordado); reinício ou queda zera a **partida em andamento**, mas não a conta do professor, que fica salva no Postgres.
 
@@ -91,12 +101,14 @@ Ping/
     ├── play.html
     ├── entrar.html
     ├── criar-tema.html
+    ├── admin.html
     ├── css/
     │   ├── painel.css
     │   ├── host.css
     │   ├── play.css
     │   ├── auth.css
-    │   └── criar-tema.css
+    │   ├── criar-tema.css
+    │   └── admin.css
     ├── img/
     │   ├── ping-logo.png
     │   └── ping-logo.svg
@@ -105,7 +117,8 @@ Ping/
         ├── host.js
         ├── play.js
         ├── auth.js
-        └── criar-tema.js
+        ├── criar-tema.js
+        └── admin.js
 ```
 
 `server.js` só faz o bootstrap (Express, WebSocket, boot); a lógica fica separada por assunto: `contas.js` (login/cadastro), `temas.js` (banco de perguntas, arquivo e Postgres) e `jogo.js` (estado da partida e toda a troca de mensagens por WebSocket).

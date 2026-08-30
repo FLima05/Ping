@@ -1,7 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const express = require('express');
-const { pool } = require('./db');
+const { pool, ehAdmin } = require('./db');
 const { professorDaRequisicao } = require('./auth');
 
 const PASTA_QUIZZES = path.join(__dirname, 'quizzes');
@@ -83,7 +83,7 @@ const arquivos = carregarArquivos(); // chave = nome do arquivo, fixo desde o bo
 const doBanco = new Map(); // chave = 'db:' + id, recarregado a cada mudanca
 
 async function carregarDoBanco() {
-  const resultado = await pool.query('SELECT id, titulo, descricao, perguntas, criado_por FROM temas ORDER BY id');
+  const resultado = await pool.query('SELECT id, titulo, descricao, perguntas, criado_por, status FROM temas ORDER BY id');
   doBanco.clear();
   resultado.rows.forEach((linha) => {
     doBanco.set('db:' + linha.id, {
@@ -91,7 +91,8 @@ async function carregarDoBanco() {
       descricao: linha.descricao || '',
       perguntas: linha.perguntas,
       editavel: true,
-      criadoPor: linha.criado_por
+      criadoPor: linha.criado_por,
+      status: linha.status
     });
   });
 }
@@ -104,19 +105,66 @@ function buscarTema(chave) {
   return arquivos.get(chave) || doBanco.get(chave) || null;
 }
 
-function temaExiste(chave) {
-  return arquivos.has(chave) || doBanco.has(chave);
+// aprovado vale pra qualquer um; pendente so pra quem criou usar enquanto espera revisao; rejeitado nao roda pra ninguem
+function podeUsar(t, professorId) {
+  if (t.status === 'aprovado') return true;
+  return t.status === 'pendente' && t.criadoPor === professorId;
 }
 
-function listarTemas() {
+function temaExiste(chave, professorId) {
+  return arquivos.has(chave) || (doBanco.has(chave) && podeUsar(doBanco.get(chave), professorId));
+}
+
+function listarTemas(professorId) {
   const lista = [];
   arquivos.forEach((t, chave) => {
-    lista.push({ arquivo: chave, titulo: t.titulo, descricao: t.descricao, total: t.perguntas.length, editavel: false, criadoPor: null });
+    lista.push({ arquivo: chave, titulo: t.titulo, descricao: t.descricao, total: t.perguntas.length, editavel: false, criadoPor: null, status: 'aprovado' });
   });
   doBanco.forEach((t, chave) => {
-    lista.push({ arquivo: chave, titulo: t.titulo, descricao: t.descricao, total: t.perguntas.length, editavel: true, criadoPor: t.criadoPor });
+    if (!podeUsar(t, professorId)) return;
+    lista.push({ arquivo: chave, titulo: t.titulo, descricao: t.descricao, total: t.perguntas.length, editavel: true, criadoPor: t.criadoPor, status: t.status });
   });
   return lista;
+}
+
+// temas do proprio professor, qualquer status, pra ele acompanhar/editar o que mandou
+function meusTemas(professorId) {
+  const lista = [];
+  doBanco.forEach((t, chave) => {
+    if (t.criadoPor !== professorId) return;
+    lista.push({ arquivo: chave, titulo: t.titulo, descricao: t.descricao, total: t.perguntas.length, status: t.status });
+  });
+  return lista;
+}
+
+async function temasPendentes() {
+  const resultado = await pool.query(
+    `SELECT temas.id, temas.titulo, temas.descricao, temas.perguntas, professores.nome AS criador_nome, professores.email AS criador_email
+     FROM temas JOIN professores ON professores.id = temas.criado_por
+     WHERE temas.status = 'pendente' ORDER BY temas.criado_em`
+  );
+  return resultado.rows.map((linha) => ({
+    id: linha.id,
+    titulo: linha.titulo,
+    descricao: linha.descricao,
+    total: linha.perguntas.length,
+    perguntas: linha.perguntas,
+    criadorNome: linha.criador_nome,
+    criadorEmail: linha.criador_email
+  }));
+}
+
+async function moderarTema(id, aprovar) {
+  const resultado = await pool.query('UPDATE temas SET status = $1 WHERE id = $2 RETURNING id', [
+    aprovar ? 'aprovado' : 'rejeitado',
+    id
+  ]);
+  if (resultado.rowCount === 0) {
+    const erro = new Error('tema nao encontrado');
+    erro.naoEncontrado = true;
+    throw erro;
+  }
+  await carregarDoBanco();
 }
 
 async function criarTema(professorId, dados) {
@@ -127,13 +175,14 @@ async function criarTema(professorId, dados) {
     throw erro;
   }
   const resultado = await pool.query(
-    'INSERT INTO temas (titulo, descricao, perguntas, criado_por) VALUES ($1, $2, $3, $4) RETURNING id',
+    "INSERT INTO temas (titulo, descricao, perguntas, criado_por, status) VALUES ($1, $2, $3, $4, 'pendente') RETURNING id",
     [dados.titulo.trim(), (dados.descricao || '').trim(), JSON.stringify(dados.perguntas), professorId]
   );
   await carregarDoBanco();
   return 'db:' + resultado.rows[0].id;
 }
 
+// editar manda de volta pra revisao, mesmo se ja estava aprovado
 async function editarTema(id, dados) {
   const erros = validarBanco(dados);
   if (erros.length) {
@@ -142,7 +191,7 @@ async function editarTema(id, dados) {
     throw erro;
   }
   const resultado = await pool.query(
-    'UPDATE temas SET titulo = $1, descricao = $2, perguntas = $3 WHERE id = $4 RETURNING id',
+    "UPDATE temas SET titulo = $1, descricao = $2, perguntas = $3, status = 'pendente' WHERE id = $4 RETURNING id",
     [dados.titulo.trim(), (dados.descricao || '').trim(), JSON.stringify(dados.perguntas), id]
   );
   if (resultado.rowCount === 0) {
@@ -163,8 +212,42 @@ async function removerTema(id) {
 const router = express.Router();
 
 router.get('/api/temas', (req, res) => {
-  if (!professorDaRequisicao(req)) return res.status(403).json({ erro: 'entra na conta pra ver os temas' });
-  res.json(listarTemas());
+  const professorId = professorDaRequisicao(req);
+  if (!professorId) return res.status(403).json({ erro: 'entra na conta pra ver os temas' });
+  res.json(listarTemas(professorId));
+});
+
+router.get('/api/temas/meus', (req, res) => {
+  const professorId = professorDaRequisicao(req);
+  if (!professorId) return res.status(403).json({ erro: 'entra na conta pra ver os temas' });
+  res.json(meusTemas(professorId));
+});
+
+router.get('/api/temas/pendentes', async (req, res) => {
+  const professorId = professorDaRequisicao(req);
+  if (!professorId) return res.status(403).json({ erro: 'entra na conta' });
+  if (!(await ehAdmin(professorId))) return res.status(403).json({ erro: 'so admin ve isso' });
+  try {
+    res.json(await temasPendentes());
+  } catch (erro) {
+    console.error(erro);
+    res.status(500).json({ erro: 'nao consegui buscar os temas pendentes' });
+  }
+});
+
+router.post('/api/temas/:id/moderar', async (req, res) => {
+  const professorId = professorDaRequisicao(req);
+  if (!professorId) return res.status(403).json({ erro: 'entra na conta' });
+  if (!(await ehAdmin(professorId))) return res.status(403).json({ erro: 'so admin faz isso' });
+  const aprovar = req.body.aprovar === true;
+  try {
+    await moderarTema(Number(req.params.id), aprovar);
+    res.json({ ok: true });
+  } catch (erro) {
+    if (erro.naoEncontrado) return res.status(404).json({ erro: 'tema nao encontrado' });
+    console.error(erro);
+    res.status(500).json({ erro: 'nao consegui moderar o tema' });
+  }
 });
 
 router.get('/api/temas/:id', (req, res) => {

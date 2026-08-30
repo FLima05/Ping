@@ -1,7 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const { professorDaRequisicao } = require('./auth');
-const { buscarTema, temaExiste, listarTemas } = require('./temas');
+const { buscarTema, temaExiste } = require('./temas');
 
 const PASTA_RELATORIOS = path.join(__dirname, 'relatorios');
 
@@ -174,7 +174,6 @@ function estadoHost() {
     equipesPlacar: placarEquipes(),
     tema: jogo.tema,
     tituloTema: banco() ? banco().titulo : '',
-    temas: listarTemas(),
     jogadores: [...jogadores.values()]
       .filter(online)
       .map((j) => ({ id: j.id, nome: j.nome, avatar: j.avatar, equipe: j.equipe, eliminado: j.eliminado })),
@@ -403,7 +402,7 @@ function configurarWebSocket(wss) {
 
       if (msg.tipo === 'tema') {
         if (!hosts.has(ws) || (jogo.estado !== 'aguardando' && jogo.estado !== 'configurando')) return;
-        if (!temaExiste(msg.arquivo)) return;
+        if (!temaExiste(msg.arquivo, ws.professorId)) return;
         jogo.tema = msg.arquivo;
         transmitir();
         return;

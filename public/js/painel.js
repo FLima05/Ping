@@ -9,6 +9,7 @@ const elBolhaModos = el('bolha-modos');
 const elBolhaErro = el('bolha-erro');
 const elBolhaConfirmar = el('bolha-confirmar');
 const elFecharBolha = el('fechar-bolha');
+const elCardAdmin = el('card-admin');
 
 let temas = [];
 let temaEscolhido = null;
@@ -25,6 +26,7 @@ async function carregarEu() {
     const resposta = await fetch('/api/eu');
     const eu = await resposta.json();
     if (resposta.ok) elSaudacao.textContent = 'Olá, ' + eu.nome + ' 👋';
+    if (eu.admin) elCardAdmin.hidden = false;
   } catch (erro) {
     console.error(erro);
   }
@@ -38,11 +40,17 @@ function montarCirculo(tema, aoClicar) {
   const item = document.createElement('button');
   item.type = 'button';
   item.className = 'tema-circulo';
-  item.title = tema.titulo + ', ' + tema.total + ' perguntas';
+  item.title = tema.titulo + ', ' + tema.total + ' perguntas' + (tema.status === 'pendente' ? ' (em revisão, só você vê)' : '');
 
   const bola = document.createElement('span');
   bola.className = 'tema-bola';
   bola.textContent = iniciais(tema.titulo);
+  if (tema.status === 'pendente') {
+    const selo = document.createElement('span');
+    selo.className = 'tema-selo-pendente';
+    selo.textContent = '⏳';
+    bola.appendChild(selo);
+  }
   item.appendChild(bola);
 
   const label = document.createElement('span');

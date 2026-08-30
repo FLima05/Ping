@@ -12,7 +12,6 @@ const modeloPergunta = el('modelo-pergunta');
 const modeloAlternativa = el('modelo-alternativa');
 
 let contadorGrupo = 0;
-let euId = null;
 
 function mostrarErro(texto, sucesso) {
   elErro.textContent = texto;
@@ -165,23 +164,21 @@ async function excluirTema(id) {
   }
 }
 
+const rotuloStatus = { pendente: '⏳ Em revisão', aprovado: '✅ Aprovado', rejeitado: '❌ Rejeitado' };
+
 async function carregarMeusTemas() {
   try {
-    const [respEu, respTemas] = await Promise.all([fetch('/api/eu'), fetch('/api/temas')]);
-    const eu = await respEu.json();
-    euId = eu.id || null;
-    const temas = await respTemas.json();
+    const temas = await (await fetch('/api/temas/meus')).json();
 
     elListaTemas.innerHTML = '';
-    temas
-      .filter((t) => t.editavel && t.criadoPor === euId)
-      .forEach((t) => {
+    temas.forEach((t) => {
         const id = t.arquivo.replace('db:', '');
         const item = document.createElement('li');
+        item.className = 'status-' + t.status;
 
         const nome = document.createElement('span');
         nome.className = 'meu-tema-nome';
-        nome.textContent = t.titulo + ', ' + t.total + ' perguntas';
+        nome.textContent = t.titulo + ', ' + t.total + ' perguntas — ' + (rotuloStatus[t.status] || t.status);
         item.appendChild(nome);
 
         const botoes = document.createElement('span');
